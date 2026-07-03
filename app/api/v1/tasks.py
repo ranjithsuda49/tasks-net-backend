@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import get_task_service
-from app.exceptions import NotFoundError
+from app.exceptions import BadRequestError, NotFoundError
 from app.models.task import Task
 from app.schemas.task import (
     TaskCreateRequest,
@@ -68,6 +68,10 @@ def update_task_state(
         task = service.update_task_state(task_id, updated_by=payload.updatedBy, new_state=payload.taskState)
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except BadRequestError as exc:
+        raise HTTPException(
+            status_code=exc.http_code, detail={"errorCode": exc.error_code, "message": exc.message}
+        ) from exc
     return _to_response(task)
 
 

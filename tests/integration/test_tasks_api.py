@@ -50,6 +50,34 @@ def test_update_task_state(client):
     assert response.json()["taskState"] == "IN-PROGRESS"
 
 
+def test_update_task_state_already_completed_returns_400(client):
+    user_id = _create_user(client)
+    task_id = client.post(
+        "/api/v1/tasks", json={"taskTitle": "Buy milk", "createdBy": user_id}
+    ).json()["taskId"]
+    client.patch(f"/api/v1/tasks/{task_id}/state", json={"updatedBy": user_id, "taskState": "COMPLETED"})
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_id}/state", json={"updatedBy": user_id, "taskState": "COMPLETED"}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"]["errorCode"] == "ERR_TASKS_002"
+
+
+def test_update_task_state_allows_moving_out_of_completed(client):
+    user_id = _create_user(client)
+    task_id = client.post(
+        "/api/v1/tasks", json={"taskTitle": "Buy milk", "createdBy": user_id}
+    ).json()["taskId"]
+    client.patch(f"/api/v1/tasks/{task_id}/state", json={"updatedBy": user_id, "taskState": "COMPLETED"})
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_id}/state", json={"updatedBy": user_id, "taskState": "TODO"}
+    )
+    assert response.status_code == 200
+    assert response.json()["taskState"] == "TODO"
+
+
 def test_update_task_due_date(client):
     user_id = _create_user(client)
     task_id = client.post(

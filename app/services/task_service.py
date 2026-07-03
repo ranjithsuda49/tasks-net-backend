@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.exceptions import NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, NotFoundError
 from app.models.enums import TaskState
 from app.models.task import Task
 from app.repositories.base import BaseRepository
@@ -64,6 +64,8 @@ class TaskService:
     def update_task_state(self, task_id: str, updated_by: str, new_state: TaskState) -> Task:
         self._user_service.get_user(updated_by)
         task = self.get_task(task_id)
+        if task.taskState == TaskState.COMPLETED and new_state == TaskState.COMPLETED:
+            raise BadRequestError(ErrorCode.TASK_ALREADY_COMPLETED)
         updated = task.model_copy(
             update={
                 "taskState": new_state,

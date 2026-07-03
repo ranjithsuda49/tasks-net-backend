@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.exceptions import NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, NotFoundError
 from app.models.enums import TaskState
 from app.repositories.task_repository import InMemoryTaskRepository
 from app.repositories.user_repository import InMemoryUserRepository
@@ -57,6 +57,30 @@ def test_update_task_state_transitions(task_service: TaskService, user_service: 
     )
     assert updated.taskState == TaskState.IN_PROGRESS
     assert updated.updatedAt is not None
+
+
+def test_update_task_state_raises_bad_request_if_already_completed(
+    task_service: TaskService, user_service: UserService
+):
+    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
+    task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.COMPLETED)
+    with pytest.raises(BadRequestError) as exc_info:
+        task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.COMPLETED)
+    assert exc_info.value.error_code == ErrorCode.TASK_ALREADY_COMPLETED
+    assert exc_info.value.http_code == 400
+
+
+def test_update_task_state_allows_moving_out_of_completed(
+    task_service: TaskService, user_service: UserService
+):
+    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
+    task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.COMPLETED)
+    updated = task_service.update_task_state(
+        task.taskId, updated_by=user.userId, new_state=TaskState.TODO
+    )
+    assert updated.taskState == TaskState.TODO
 
 
 def test_update_due_date(task_service: TaskService, user_service: UserService):
