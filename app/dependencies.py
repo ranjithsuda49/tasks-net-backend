@@ -1,10 +1,12 @@
 from functools import lru_cache
 
 from app.repositories.group_repository import InMemoryGroupRepository
+from app.repositories.task_group_repository import InMemoryTaskGroupRepository
 from app.repositories.task_repository import InMemoryTaskRepository
 from app.repositories.user_group_repository import InMemoryUserGroupRepository
 from app.repositories.user_repository import InMemoryUserRepository
 from app.services.group_service import GroupService
+from app.services.task_group_service import TaskGroupService
 from app.services.task_service import TaskService
 from app.services.user_group_service import UserGroupService
 from app.services.user_service import UserService
@@ -44,3 +46,14 @@ def get_task_repository() -> InMemoryTaskRepository:
 
 def get_task_service() -> TaskService:
     return TaskService(get_task_repository(), get_user_service())
+
+
+@lru_cache
+def get_task_group_repository() -> InMemoryTaskGroupRepository:
+    return InMemoryTaskGroupRepository()
+
+
+def get_task_group_service() -> TaskGroupService:
+    return TaskGroupService(
+        get_task_group_repository(), get_task_service(), get_group_service(), get_user_service()
+    )
