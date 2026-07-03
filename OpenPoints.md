@@ -20,23 +20,6 @@ before any production use.
   this is exposed beyond local development.
 
 ## Validation gaps
-- ~~Assigning a task to a user in `Task-Group-Relationship` does not verify
-  the assignee is actually a member of the target group~~ — **Fixed.**
-  `TaskGroupService.assign` now calls `UserGroupService.is_member` and
-  raises `BadRequestError(ErrorCode.ASSIGNEE_NOT_GROUP_MEMBER)` (HTTP 400,
-  `ERR_TASKS_001`) if the assignee isn't a member of the group.
-- ~~Task state transitions (`TaskState`) are unrestricted~~ — **Partially
-  fixed.** `TaskService.update_task_state` now rejects moving `COMPLETED` →
-  `COMPLETED` again (`BadRequestError(ErrorCode.TASK_ALREADY_COMPLETED)`,
-  HTTP 400, `ERR_TASKS_002`). All other transitions, including moving out of
-  `COMPLETED` back to `TODO`/`IN-PROGRESS`, remain unrestricted — this was a
-  deliberate scope decision, not an oversight; revisit if the product needs
-  a full state machine.
-- ~~No uniqueness check preventing the same user being added to the same
-  group twice~~ — **Fixed.** `UserGroupService.associate` now calls
-  `is_member` first and raises
-  `BadRequestError(ErrorCode.DUPLICATE_GROUP_MEMBERSHIP)` (HTTP 400,
-  `ERR_TASKS_003`) if the user is already associated with the group.
 - `PATCH /api/v1/tasks/{task_id}/due-date` requires a `taskDueDate` value
   (`TaskDueDateUpdateRequest.taskDueDate: datetime`, not `Optional`), so
   there is currently no way to clear a task's due date back to `null` via
@@ -44,11 +27,12 @@ before any production use.
   `Optional[datetime]`.
 
 ### Error codes
-All three fixes above raise `app.exceptions.BadRequestError`, which routers
-translate to HTTP 400 with a JSON body of the form
-`{"detail": {"errorCode": "ERR_TASKS_00N", "message": "..."}}`. See
-`app.exceptions.ErrorCode` and `ERROR_CODE_MESSAGES` for the current code ->
-message mapping:
+`app.exceptions.BadRequestError` is raised by `TaskGroupService.assign`,
+`TaskService.update_task_state`, and `UserGroupService.associate` for their
+respective validation rules; routers translate it to HTTP 400 with a JSON
+body of the form `{"detail": {"errorCode": "ERR_TASKS_00N", "message": "..."}}`.
+See `app.exceptions.ErrorCode` and `ERROR_CODE_MESSAGES` for the current
+code -> message mapping:
 
 | Code | Meaning |
 |---|---|
@@ -93,3 +77,14 @@ message mapping:
 - Unit and integration tests cover the happy paths and documented error
   paths (404s) for each entity. Concurrency/race-condition testing on the
   in-memory stores is not covered.
+
+## Deployment
+- Docker is not installed on this development machine (`docker --version`
+  fails with "command not found" as of this writing). The `Dockerfile` and
+  `docker-compose.yml` were therefore verified only indirectly — by running
+  the exact `pip install`/`uvicorn` commands the image uses directly against
+  the local `.venv` — never through an actual `docker build` or
+  `docker compose up`. Install Docker Desktop (or the Docker Engine CLI) on
+  this machine and run `docker compose up --build` at least once to confirm
+  the image actually builds and serves traffic before relying on it for any
+  real deployment or CI step.
