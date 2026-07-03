@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import get_task_group_service
 from app.exceptions import BadRequestError, NotFoundError
+from app.schemas.errors import ErrorDetail
 from app.schemas.task_group import TaskGroupAssignRequest, TaskGroupResponse
 from app.services.task_group_service import TaskGroupService
 
@@ -21,7 +22,8 @@ def assign_task(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except BadRequestError as exc:
         raise HTTPException(
-            status_code=exc.http_code, detail={"errorCode": exc.error_code, "message": exc.message}
+            status_code=exc.http_code,
+            detail=ErrorDetail(errorCode=exc.error_code, message=exc.message).model_dump(),
         ) from exc
     return TaskGroupResponse(**relationship.model_dump())
 

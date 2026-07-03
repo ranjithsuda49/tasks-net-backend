@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import get_user_group_service
 from app.exceptions import BadRequestError, NotFoundError
+from app.schemas.errors import ErrorDetail
 from app.schemas.user_group import UserGroupAssociateRequest, UserGroupResponse
 from app.services.user_group_service import UserGroupService
 
@@ -22,7 +23,8 @@ def associate_user(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except BadRequestError as exc:
         raise HTTPException(
-            status_code=exc.http_code, detail={"errorCode": exc.error_code, "message": exc.message}
+            status_code=exc.http_code,
+            detail=ErrorDetail(errorCode=exc.error_code, message=exc.message).model_dump(),
         ) from exc
     return UserGroupResponse(**relationship.model_dump())
 
