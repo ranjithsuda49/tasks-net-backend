@@ -1,6 +1,6 @@
 import uuid
 
-from app.exceptions import NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, NotFoundError
 from app.models.user_group import UserGroupRelationship
 from app.repositories.user_group_repository import InMemoryUserGroupRepository
 from app.services.group_service import GroupService
@@ -21,6 +21,8 @@ class UserGroupService:
     def associate(self, user_id: str, group_id: str, relationship: str) -> UserGroupRelationship:
         self._user_service.get_user(user_id)
         self._group_service.get_group(group_id)
+        if self.is_member(user_id, group_id):
+            raise BadRequestError(ErrorCode.DUPLICATE_GROUP_MEMBERSHIP)
         entity = UserGroupRelationship(
             uuid=str(uuid.uuid4()), groupId=group_id, userId=user_id, relationship=relationship
         )

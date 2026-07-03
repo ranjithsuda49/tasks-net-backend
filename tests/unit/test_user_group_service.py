@@ -1,6 +1,6 @@
 import pytest
 
-from app.exceptions import NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, NotFoundError
 from app.repositories.group_repository import InMemoryGroupRepository
 from app.repositories.user_group_repository import InMemoryUserGroupRepository
 from app.repositories.user_repository import InMemoryUserRepository
@@ -51,6 +51,17 @@ def test_associate_creates_relationship(user_group_service: UserGroupService, gr
     assert relationship.userId == user.userId
     assert relationship.groupId == group.groupId
     assert relationship.relationship == "Father"
+
+
+def test_associate_raises_bad_request_if_already_associated(
+    user_group_service: UserGroupService, group_service, user_service
+):
+    user, group = _make_user_and_group(user_service, group_service)
+    user_group_service.associate(user.userId, group.groupId, "Father")
+    with pytest.raises(BadRequestError) as exc_info:
+        user_group_service.associate(user.userId, group.groupId, "Father")
+    assert exc_info.value.error_code == ErrorCode.DUPLICATE_GROUP_MEMBERSHIP
+    assert exc_info.value.http_code == 400
 
 
 def test_disassociate_removes_relationship(user_group_service: UserGroupService, group_service, user_service):

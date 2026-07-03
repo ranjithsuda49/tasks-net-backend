@@ -25,6 +25,20 @@ def test_associate_user_to_group(client):
     assert body["relationship"] == "Father"
 
 
+def test_associate_duplicate_returns_400(client):
+    creator_id = _create_user(client)
+    group_id = _create_group(client, creator_id)
+    client.post(
+        f"/api/v1/groups/{group_id}/members", json={"userId": creator_id, "relationship": "Father"}
+    )
+
+    response = client.post(
+        f"/api/v1/groups/{group_id}/members", json={"userId": creator_id, "relationship": "Father"}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"]["errorCode"] == "ERR_TASKS_003"
+
+
 def test_associate_unknown_user_returns_404(client):
     creator_id = _create_user(client)
     group_id = _create_group(client, creator_id)
