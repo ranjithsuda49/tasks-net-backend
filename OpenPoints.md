@@ -20,19 +20,41 @@ before any production use.
   this is exposed beyond local development.
 
 ## Validation gaps
-- Assigning a task to a user in `Task-Group-Relationship` does not verify
-  the assignee is actually a member of the target group (no cross-check
-  against `UserGroupRelationship`).
-- Task state transitions (`TaskState`) are unrestricted — any state can move
-  to any other state (e.g. `COMPLETED` → `TODO` is allowed). No workflow
-  rules are enforced. Revisit if the product needs a strict state machine.
-- No uniqueness check preventing the same user being added to the same
-  group twice with two different `UserGroupRelationship` rows.
+- ~~Assigning a task to a user in `Task-Group-Relationship` does not verify
+  the assignee is actually a member of the target group~~ — **Fixed.**
+  `TaskGroupService.assign` now calls `UserGroupService.is_member` and
+  raises `BadRequestError(ErrorCode.ASSIGNEE_NOT_GROUP_MEMBER)` (HTTP 400,
+  `ERR_TASKS_001`) if the assignee isn't a member of the group.
+- ~~Task state transitions (`TaskState`) are unrestricted~~ — **Partially
+  fixed.** `TaskService.update_task_state` now rejects moving `COMPLETED` →
+  `COMPLETED` again (`BadRequestError(ErrorCode.TASK_ALREADY_COMPLETED)`,
+  HTTP 400, `ERR_TASKS_002`). All other transitions, including moving out of
+  `COMPLETED` back to `TODO`/`IN-PROGRESS`, remain unrestricted — this was a
+  deliberate scope decision, not an oversight; revisit if the product needs
+  a full state machine.
+- ~~No uniqueness check preventing the same user being added to the same
+  group twice~~ — **Fixed.** `UserGroupService.associate` now calls
+  `is_member` first and raises
+  `BadRequestError(ErrorCode.DUPLICATE_GROUP_MEMBERSHIP)` (HTTP 400,
+  `ERR_TASKS_003`) if the user is already associated with the group.
 - `PATCH /api/v1/tasks/{task_id}/due-date` requires a `taskDueDate` value
   (`TaskDueDateUpdateRequest.taskDueDate: datetime`, not `Optional`), so
   there is currently no way to clear a task's due date back to `null` via
   the API — even though `Task.taskDueDate` on the domain model itself is
   `Optional[datetime]`.
+
+### Error codes
+All three fixes above raise `app.exceptions.BadRequestError`, which routers
+translate to HTTP 400 with a JSON body of the form
+`{"detail": {"errorCode": "ERR_TASKS_00N", "message": "..."}}`. See
+`app.exceptions.ErrorCode` and `ERROR_CODE_MESSAGES` for the current code ->
+message mapping:
+
+| Code | Meaning |
+|---|---|
+| `ERR_TASKS_001` | Assignee is not a member of the target group |
+| `ERR_TASKS_002` | Task is already COMPLETED and cannot be marked COMPLETED again |
+| `ERR_TASKS_003` | User is already associated with this group |
 
 ## API surface gaps
 - No delete endpoints for `User` or `Group` (spec only asks for status
