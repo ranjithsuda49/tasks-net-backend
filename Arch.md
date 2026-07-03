@@ -4,11 +4,16 @@
 
 1. **api/v1** — FastAPI routers. Only HTTP concerns: request parsing, status
    codes, translating domain exceptions to `HTTPException`. No business logic.
-2. **services** — Business logic. Each service takes one or more
-   `BaseRepository` abstractions in its constructor (constructor injection),
-   never a concrete `InMemory*Repository`. This is the Dependency Inversion
-   seam: swapping in-memory storage for a real DB later means writing new
-   repository classes only — services and routers do not change.
+2. **services** — Business logic. Most services take `BaseRepository`
+   abstractions in their constructor (constructor injection). A few
+   (`GroupService`, `UserGroupService`, `TaskGroupService`) instead depend on
+   a concrete `InMemory*Repository` because they need an entity-specific
+   query method (e.g. `list_by_creator`, `find_by_user_and_group`) that isn't
+   part of the generic `BaseRepository[T]` interface — see the SOLID mapping
+   below for the same caveat. This is still the Dependency Inversion seam for
+   the common case: swapping in-memory storage for a real DB later means
+   writing new repository classes, with services and routers unchanged
+   wherever they depend on the abstraction.
 3. **repositories** — `BaseRepository[T]` (abstract) defines `add`, `get`,
    `update`, `list_all`. `InMemory*Repository` classes implement it with a
    `dict[str, T]` keyed by entity ID. One repository per entity/relationship.
