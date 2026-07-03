@@ -1,10 +1,11 @@
 import uuid
 
-from app.exceptions import NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, NotFoundError
 from app.models.task_group import TaskGroupRelationship
 from app.repositories.task_group_repository import InMemoryTaskGroupRepository
 from app.services.group_service import GroupService
 from app.services.task_service import TaskService
+from app.services.user_group_service import UserGroupService
 from app.services.user_service import UserService
 
 
@@ -15,16 +16,20 @@ class TaskGroupService:
         task_service: TaskService,
         group_service: GroupService,
         user_service: UserService,
+        user_group_service: UserGroupService,
     ):
         self._repository = repository
         self._task_service = task_service
         self._group_service = group_service
         self._user_service = user_service
+        self._user_group_service = user_group_service
 
     def assign(self, task_id: str, group_id: str, assignee_id: str) -> TaskGroupRelationship:
         self._task_service.get_task(task_id)
         self._group_service.get_group(group_id)
         self._user_service.get_user(assignee_id)
+        if not self._user_group_service.is_member(assignee_id, group_id):
+            raise BadRequestError(ErrorCode.ASSIGNEE_NOT_GROUP_MEMBER)
 
         existing = self._repository.find_by_task_and_group(task_id, group_id)
         if existing is not None:

@@ -34,3 +34,6 @@ class UserGroupService:
 
     def list_by_group(self, group_id: str) -> list[UserGroupRelationship]:
         return self._repository.list_by_group(group_id)
+
+    def is_member(self, user_id: str, group_id: str) -> bool:
+        return self._repository.find_by_user_and_group(user_id, group_id) is not None

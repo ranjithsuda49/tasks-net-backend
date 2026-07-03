@@ -55,5 +55,9 @@ def get_task_group_repository() -> InMemoryTaskGroupRepository:
 
 def get_task_group_service() -> TaskGroupService:
     return TaskGroupService(
-        get_task_group_repository(), get_task_service(), get_group_service(), get_user_service()
+        get_task_group_repository(),
+        get_task_service(),
+        get_group_service(),
+        get_user_service(),
+        get_user_group_service(),
     )

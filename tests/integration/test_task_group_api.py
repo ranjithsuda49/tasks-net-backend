@@ -17,10 +17,17 @@ def _create_task(client, creator_id):
     ).json()["taskId"]
 
 
+def _associate_user(client, group_id, user_id, relationship="Member"):
+    return client.post(
+        f"/api/v1/groups/{group_id}/members", json={"userId": user_id, "relationship": relationship}
+    )
+
+
 def test_assign_task_to_group_member(client):
     creator_id = _create_user(client)
     group_id = _create_group(client, creator_id)
     task_id = _create_task(client, creator_id)
+    _associate_user(client, group_id, creator_id, "Creator")
 
     response = client.post(
         f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": creator_id}
@@ -43,10 +50,25 @@ def test_assign_task_unknown_assignee_returns_404(client):
     assert response.status_code == 404
 
 
+def test_assign_task_to_non_member_returns_400(client):
+    creator_id = _create_user(client)
+    outsider_id = _create_user(client, first_name="Cara", last_name="Jones")
+    group_id = _create_group(client, creator_id)
+    task_id = _create_task(client, creator_id)
+
+    response = client.post(
+        f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": outsider_id}
+    )
+    assert response.status_code == 400
+    body = response.json()
+    assert body["detail"]["errorCode"] == "ERR_TASKS_001"
+
+
 def test_unassign_task(client):
     creator_id = _create_user(client)
     group_id = _create_group(client, creator_id)
     task_id = _create_task(client, creator_id)
+    _associate_user(client, group_id, creator_id, "Creator")
     client.post(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": creator_id})
 
     response = client.delete(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee/{creator_id}")
@@ -68,6 +90,7 @@ def test_unassign_task_with_mismatched_assignee_returns_404(client):
     other_user_id = _create_user(client, first_name="Bob", last_name="Smith")
     group_id = _create_group(client, creator_id)
     task_id = _create_task(client, creator_id)
+    _associate_user(client, group_id, creator_id, "Creator")
     client.post(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": creator_id})
 
     response = client.delete(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee/{other_user_id}")

@@ -33,7 +33,9 @@ def client():
     group_service = GroupService(group_repo, user_service)
     user_group_service = UserGroupService(user_group_repo, user_service, group_service)
     task_service = TaskService(task_repo, user_service)
-    task_group_service = TaskGroupService(task_group_repo, task_service, group_service, user_service)
+    task_group_service = TaskGroupService(
+        task_group_repo, task_service, group_service, user_service, user_group_service
+    )
 
     app.dependency_overrides[get_user_service] = lambda: user_service
     app.dependency_overrides[get_group_service] = lambda: group_service
