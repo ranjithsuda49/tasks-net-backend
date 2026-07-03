@@ -38,29 +38,35 @@ def test_create_task_defaults_to_todo(task_service: TaskService, user_service: U
 def test_update_task_meta_changes_title_and_desc(task_service: TaskService, user_service: UserService):
     user = user_service.create_user(first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
+    assert task.updatedAt is None
     updated = task_service.update_task_meta(
         task.taskId, updated_by=user.userId, task_title="Buy oat milk", task_desc="2 liters"
     )
     assert updated.taskTitle == "Buy oat milk"
     assert updated.taskDesc == "2 liters"
     assert updated.updatedBy == user.userId
+    assert updated.updatedAt is not None
 
 
 def test_update_task_state_transitions(task_service: TaskService, user_service: UserService):
     user = user_service.create_user(first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
+    assert task.updatedAt is None
     updated = task_service.update_task_state(
         task.taskId, updated_by=user.userId, new_state=TaskState.IN_PROGRESS
     )
     assert updated.taskState == TaskState.IN_PROGRESS
+    assert updated.updatedAt is not None
 
 
 def test_update_due_date(task_service: TaskService, user_service: UserService):
     user = user_service.create_user(first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
+    assert task.updatedAt is None
     new_due_date = datetime.now(timezone.utc) + timedelta(days=3)
     updated = task_service.update_due_date(task.taskId, updated_by=user.userId, due_date=new_due_date)
     assert updated.taskDueDate == new_due_date
+    assert updated.updatedAt is not None
 
 
 def test_get_task_raises_not_found(task_service: TaskService):

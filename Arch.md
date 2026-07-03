@@ -42,8 +42,12 @@ referencing it) still share consistent state within a single test.
   service expects one — enforced by the shared abstract base.
 - **I**: repository interfaces are per-entity rather than one large
   interface, so no repository is forced to implement methods it doesn't need.
-- **D**: services and routers depend on abstractions (`BaseRepository`,
-  injected via `Depends`), never on concrete in-memory classes.
+- **D**: most services and routers depend on the `BaseRepository[T]`
+  abstraction, injected via `Depends`. A few services (`GroupService`,
+  `UserGroupService`, `TaskGroupService`) depend on a concrete
+  `InMemory*Repository` type instead, because they need an entity-specific
+  query method (e.g. `list_by_creator`, `find_by_user_and_group`) that
+  isn't part of the generic `BaseRepository[T]` interface.
 
 ## Entity relationships
 

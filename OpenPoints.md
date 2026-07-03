@@ -28,6 +28,11 @@ before any production use.
   rules are enforced. Revisit if the product needs a strict state machine.
 - No uniqueness check preventing the same user being added to the same
   group twice with two different `UserGroupRelationship` rows.
+- `PATCH /api/v1/tasks/{task_id}/due-date` requires a `taskDueDate` value
+  (`TaskDueDateUpdateRequest.taskDueDate: datetime`, not `Optional`), so
+  there is currently no way to clear a task's due date back to `null` via
+  the API — even though `Task.taskDueDate` on the domain model itself is
+  `Optional[datetime]`.
 
 ## API surface gaps
 - No delete endpoints for `User` or `Group` (spec only asks for status
@@ -37,6 +42,23 @@ before any production use.
   "fetch all groups created by user") — fine at small scale, will need
   pagination once data volume grows.
 - No bulk operations (e.g. bulk task creation/assignment).
+- No GET endpoint to read a group's members or a user's memberships — only
+  `POST`/`DELETE` exist for `User`-`Group` associations. As a result,
+  `InMemoryUserGroupRepository.list_by_group` is currently dead code in
+  production (only exercised by tests, via `UserGroupService.list_by_group`).
+  This matches the original spec, which only asked for associate/
+  de-associate, so it's not a bug — just a gap for a future task.
+
+## Design notes / asymmetries
+- `UserGroupService.disassociate` (`app/services/user_group_service.py`)
+  hard-deletes the `UserGroupRelationship` row, while
+  `TaskGroupService.unassign` (`app/services/task_group_service.py`)
+  instead sets `assigneeId=None` on the `TaskGroupRelationship` row and
+  keeps it. This is intentional: the Task-Group relationship row
+  represents "this task is associated with this group," with `assigneeId`
+  as a mutable sub-field of that association, so removing the assignee
+  doesn't remove the association. Don't assume symmetry between these two
+  removal semantics when reading or extending this code.
 
 ## Observability & ops
 - No structured logging, request tracing, or metrics.

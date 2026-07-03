@@ -5,7 +5,6 @@ from typing import Optional
 from app.exceptions import NotFoundError
 from app.models.enums import GroupStatus
 from app.models.group import Group
-from app.repositories.base import BaseRepository
 from app.repositories.group_repository import InMemoryGroupRepository
 from app.services.user_service import UserService
 
