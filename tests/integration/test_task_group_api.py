@@ -61,3 +61,14 @@ def test_unassign_task_without_prior_assignment_returns_404(client):
 
     response = client.delete(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee/{creator_id}")
     assert response.status_code == 404
+
+
+def test_unassign_task_with_mismatched_assignee_returns_404(client):
+    creator_id = _create_user(client)
+    other_user_id = _create_user(client, first_name="Bob", last_name="Smith")
+    group_id = _create_group(client, creator_id)
+    task_id = _create_task(client, creator_id)
+    client.post(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": creator_id})
+
+    response = client.delete(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee/{other_user_id}")
+    assert response.status_code == 404

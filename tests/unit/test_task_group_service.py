@@ -93,3 +93,12 @@ def test_unassign_raises_if_no_matching_assignment(
     _, assignee, group, task = _setup(user_service, group_service, task_service)
     with pytest.raises(NotFoundError):
         task_group_service.unassign(task.taskId, group.groupId, assignee.userId)
+
+
+def test_unassign_raises_if_assignee_does_not_match_current_assignment(
+    task_group_service, user_service, group_service, task_service
+):
+    creator, assignee, group, task = _setup(user_service, group_service, task_service)
+    task_group_service.assign(task.taskId, group.groupId, creator.userId)
+    with pytest.raises(NotFoundError):
+        task_group_service.unassign(task.taskId, group.groupId, assignee.userId)
