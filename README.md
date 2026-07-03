@@ -7,7 +7,7 @@ relationships — built with FastAPI and in-memory storage.
 
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
 ## Run
 
