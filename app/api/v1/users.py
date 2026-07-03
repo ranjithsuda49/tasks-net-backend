@@ -40,7 +40,11 @@ def create_user(
     return _to_response(user)
 
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get(
+    "/{user_id}",
+    response_model=UserResponse,
+    responses={404: {"description": "User not found"}},
+)
 def get_user(user_id: str, service: UserService = Depends(get_user_service)) -> UserResponse:
     try:
         user = service.get_user(user_id)
@@ -49,7 +53,11 @@ def get_user(user_id: str, service: UserService = Depends(get_user_service)) -> 
     return _to_response(user)
 
 
-@router.patch("/{user_id}", response_model=UserResponse)
+@router.patch(
+    "/{user_id}",
+    response_model=UserResponse,
+    responses={404: {"description": "User not found"}},
+)
 def update_user(
     user_id: str, payload: UserUpdateRequest, service: UserService = Depends(get_user_service)
 ) -> UserResponse:
@@ -66,7 +74,11 @@ def update_user(
     return _to_response(user)
 
 
-@router.patch("/{user_id}/status", response_model=UserResponse)
+@router.patch(
+    "/{user_id}/status",
+    response_model=UserResponse,
+    responses={404: {"description": "User not found"}},
+)
 def update_user_status(
     user_id: str,
     payload: UserStatusUpdateRequest,

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.dependencies import get_task_service
 from app.exceptions import BadRequestError, NotFoundError
 from app.models.task import Task
-from app.schemas.errors import ErrorDetail
+from app.schemas.errors import BadRequestResponse, ErrorDetail
 from app.schemas.task import (
     TaskCreateRequest,
     TaskDueDateUpdateRequest,
@@ -20,7 +20,12 @@ def _to_response(task: Task) -> TaskResponse:
     return TaskResponse(**task.model_dump())
 
 
-@router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=TaskResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={404: {"description": "Task creator (user) not found"}},
+)
 def create_task(
     payload: TaskCreateRequest, service: TaskService = Depends(get_task_service)
 ) -> TaskResponse:
@@ -36,7 +41,11 @@ def create_task(
     return _to_response(task)
 
 
-@router.get("/{task_id}", response_model=TaskResponse)
+@router.get(
+    "/{task_id}",
+    response_model=TaskResponse,
+    responses={404: {"description": "Task not found"}},
+)
 def get_task(task_id: str, service: TaskService = Depends(get_task_service)) -> TaskResponse:
     try:
         task = service.get_task(task_id)
@@ -45,7 +54,11 @@ def get_task(task_id: str, service: TaskService = Depends(get_task_service)) -> 
     return _to_response(task)
 
 
-@router.patch("/{task_id}", response_model=TaskResponse)
+@router.patch(
+    "/{task_id}",
+    response_model=TaskResponse,
+    responses={404: {"description": "Task or updating user not found"}},
+)
 def update_task_meta(
     task_id: str, payload: TaskMetaUpdateRequest, service: TaskService = Depends(get_task_service)
 ) -> TaskResponse:
@@ -61,7 +74,17 @@ def update_task_meta(
     return _to_response(task)
 
 
-@router.patch("/{task_id}/state", response_model=TaskResponse)
+@router.patch(
+    "/{task_id}/state",
+    response_model=TaskResponse,
+    responses={
+        404: {"description": "Task or updating user not found"},
+        400: {
+            "model": BadRequestResponse,
+            "description": "Task is already COMPLETED and cannot be marked COMPLETED again",
+        },
+    },
+)
 def update_task_state(
     task_id: str, payload: TaskStateUpdateRequest, service: TaskService = Depends(get_task_service)
 ) -> TaskResponse:
@@ -77,7 +100,11 @@ def update_task_state(
     return _to_response(task)
 
 
-@router.patch("/{task_id}/due-date", response_model=TaskResponse)
+@router.patch(
+    "/{task_id}/due-date",
+    response_model=TaskResponse,
+    responses={404: {"description": "Task or updating user not found"}},
+)
 def update_due_date(
     task_id: str, payload: TaskDueDateUpdateRequest, service: TaskService = Depends(get_task_service)
 ) -> TaskResponse:

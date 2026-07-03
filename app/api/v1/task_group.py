@@ -2,14 +2,25 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import get_task_group_service
 from app.exceptions import BadRequestError, NotFoundError
-from app.schemas.errors import ErrorDetail
+from app.schemas.errors import BadRequestResponse, ErrorDetail
 from app.schemas.task_group import TaskGroupAssignRequest, TaskGroupResponse
 from app.services.task_group_service import TaskGroupService
 
 router = APIRouter(prefix="/api/v1/groups/{group_id}/tasks/{task_id}/assignee", tags=["task-group"])
 
 
-@router.post("", response_model=TaskGroupResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=TaskGroupResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        404: {"description": "Task, Group, or Assignee (user) not found"},
+        400: {
+            "model": BadRequestResponse,
+            "description": "Assignee is not a member of the target group",
+        },
+    },
+)
 def assign_task(
     group_id: str,
     task_id: str,
@@ -28,7 +39,11 @@ def assign_task(
     return TaskGroupResponse(**relationship.model_dump())
 
 
-@router.delete("/{assignee_id}", response_model=TaskGroupResponse)
+@router.delete(
+    "/{assignee_id}",
+    response_model=TaskGroupResponse,
+    responses={404: {"description": "No matching task-group assignment found for that assignee"}},
+)
 def unassign_task(
     group_id: str,
     task_id: str,

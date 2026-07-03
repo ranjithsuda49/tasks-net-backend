@@ -28,7 +28,12 @@ def _to_response(group: Group) -> GroupResponse:
     )
 
 
-@router.post("/groups", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/groups",
+    response_model=GroupResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={404: {"description": "Group creator (user) not found"}},
+)
 def create_group(
     payload: GroupCreateRequest, service: GroupService = Depends(get_group_service)
 ) -> GroupResponse:
@@ -45,7 +50,11 @@ def create_group(
     return _to_response(group)
 
 
-@router.get("/groups/{group_id}", response_model=GroupResponse)
+@router.get(
+    "/groups/{group_id}",
+    response_model=GroupResponse,
+    responses={404: {"description": "Group not found"}},
+)
 def get_group(group_id: str, service: GroupService = Depends(get_group_service)) -> GroupResponse:
     try:
         group = service.get_group(group_id)
@@ -62,7 +71,11 @@ def get_groups_by_creator(
     return [_to_response(group) for group in groups]
 
 
-@router.patch("/groups/{group_id}", response_model=GroupResponse)
+@router.patch(
+    "/groups/{group_id}",
+    response_model=GroupResponse,
+    responses={404: {"description": "Group not found"}},
+)
 def update_group(
     group_id: str, payload: GroupUpdateRequest, service: GroupService = Depends(get_group_service)
 ) -> GroupResponse:
@@ -78,7 +91,11 @@ def update_group(
     return _to_response(group)
 
 
-@router.patch("/groups/{group_id}/status", response_model=GroupResponse)
+@router.patch(
+    "/groups/{group_id}/status",
+    response_model=GroupResponse,
+    responses={404: {"description": "Group not found"}},
+)
 def update_group_status(
     group_id: str,
     payload: GroupStatusUpdateRequest,
