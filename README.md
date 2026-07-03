@@ -15,6 +15,15 @@ uvicorn app.main:app --reload
 
 API docs (Swagger UI) at http://localhost:8000/docs
 
+## Docker
+
+docker compose up --build
+
+API available at http://localhost:8000 (Swagger UI at /docs). The image
+installs only `requirements.txt` (no test tooling) and runs a single
+Uvicorn worker — the in-memory store isn't safe to share across workers,
+see `OpenPoints.md`.
+
 ## Test
 
 pytest -v
