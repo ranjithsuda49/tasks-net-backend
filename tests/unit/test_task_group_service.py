@@ -1,6 +1,6 @@
 import pytest
 
-from app.exceptions import BadRequestError, ErrorCode, NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, ForbiddenError, NotFoundError
 from app.repositories.group_repository import GroupRepository
 from app.repositories.task_group_repository import TaskGroupRepository
 from app.repositories.task_repository import TaskRepository
@@ -20,12 +20,12 @@ def user_service(db_session) -> UserService:
 
 @pytest.fixture
 def group_service(db_session, user_service: UserService) -> GroupService:
-    return GroupService(GroupRepository(db_session), user_service)
+    return GroupService(GroupRepository(db_session), user_service, UserGroupRepository(db_session))
 
 
 @pytest.fixture
 def task_service(db_session, user_service: UserService) -> TaskService:
-    return TaskService(TaskRepository(db_session), user_service)
+    return TaskService(TaskRepository(db_session), user_service, TaskGroupRepository(db_session))
 
 
 @pytest.fixture
@@ -151,3 +151,22 @@ def test_unassign_raises_if_assignee_does_not_match_current_assignment(
     task_group_service.assign(task.taskId, group.groupId, assignee.userId)
     with pytest.raises(NotFoundError):
         task_group_service.unassign(task.taskId, group.groupId, creator.userId)
+
+
+def test_assign_raises_forbidden_if_caller_is_not_task_creator(
+    task_group_service, user_service, group_service, task_service, user_group_service
+):
+    _, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
+    with pytest.raises(ForbiddenError):
+        task_group_service.assign(task.taskId, group.groupId, assignee.userId, current_user_id="outsider")
+
+
+def test_unassign_raises_forbidden_if_caller_is_not_task_creator(
+    task_group_service, user_service, group_service, task_service, user_group_service
+):
+    _, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
+    task_group_service.assign(task.taskId, group.groupId, assignee.userId)
+    with pytest.raises(ForbiddenError):
+        task_group_service.unassign(
+            task.taskId, group.groupId, assignee.userId, current_user_id="outsider"
+        )

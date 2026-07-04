@@ -1,6 +1,7 @@
 import uuid
+from typing import Optional
 
-from app.exceptions import BadRequestError, ErrorCode, NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, ForbiddenError, NotFoundError
 from app.models.task_group import TaskGroupRelationship
 from app.repositories.task_group_repository import TaskGroupRepository
 from app.services.group_service import GroupService
@@ -24,10 +25,14 @@ class TaskGroupService:
         self._user_service = user_service
         self._user_group_service = user_group_service
 
-    def assign(self, task_id: str, group_id: str, assignee_id: str) -> TaskGroupRelationship:
+    def assign(
+        self, task_id: str, group_id: str, assignee_id: str, current_user_id: Optional[str] = None
+    ) -> TaskGroupRelationship:
         task = self._task_service.get_task(task_id)
         self._group_service.get_group(group_id)
         self._user_service.get_user(assignee_id)
+        if current_user_id is not None and current_user_id != task.createdBy:
+            raise ForbiddenError(f"User {current_user_id} is not authorized to assign task {task_id}")
         if assignee_id == task.createdBy:
             raise BadRequestError(ErrorCode.TASK_CREATOR_CANNOT_BE_ASSIGNEE)
         if not self._user_group_service.is_member(assignee_id, group_id):
@@ -43,7 +48,12 @@ class TaskGroupService:
         )
         return self._repository.add(entity)
 
-    def unassign(self, task_id: str, group_id: str, assignee_id: str) -> TaskGroupRelationship:
+    def unassign(
+        self, task_id: str, group_id: str, assignee_id: str, current_user_id: Optional[str] = None
+    ) -> TaskGroupRelationship:
+        task = self._task_service.get_task(task_id)
+        if current_user_id is not None and current_user_id != task.createdBy:
+            raise ForbiddenError(f"User {current_user_id} is not authorized to unassign task {task_id}")
         existing = self._repository.find_by_task_and_group(task_id, group_id)
         if existing is None or existing.assigneeId != assignee_id:
             raise NotFoundError(
