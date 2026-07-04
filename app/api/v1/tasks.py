@@ -35,7 +35,7 @@ def create_task(
     try:
         task = service.create_task(
             task_title=payload.taskTitle,
-            created_by=payload.createdBy,
+            created_by=current_user_id,
             task_desc=payload.taskDesc,
             task_due_date=payload.taskDueDate,
         )

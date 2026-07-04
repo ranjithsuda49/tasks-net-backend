@@ -57,7 +57,7 @@ def test_create_task_requires_existing_user(task_service: TaskService):
 
 
 def test_create_task_defaults_to_todo(task_service: TaskService, user_service: UserService):
-    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     assert task.taskId
     assert task.taskState == TaskState.TODO
@@ -67,7 +67,7 @@ def test_create_task_defaults_to_todo(task_service: TaskService, user_service: U
 
 
 def test_update_task_meta_changes_title_and_desc(task_service: TaskService, user_service: UserService):
-    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     assert task.updatedAt is None
     updated = task_service.update_task_meta(
@@ -80,7 +80,7 @@ def test_update_task_meta_changes_title_and_desc(task_service: TaskService, user
 
 
 def test_update_task_state_transitions(task_service: TaskService, user_service: UserService):
-    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     assert task.updatedAt is None
     updated = task_service.update_task_state(
@@ -93,7 +93,7 @@ def test_update_task_state_transitions(task_service: TaskService, user_service: 
 def test_update_task_state_raises_bad_request_if_already_completed(
     task_service: TaskService, user_service: UserService
 ):
-    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.COMPLETED)
     with pytest.raises(BadRequestError) as exc_info:
@@ -105,7 +105,7 @@ def test_update_task_state_raises_bad_request_if_already_completed(
 def test_update_task_state_raises_bad_request_if_same_state_requested(
     task_service: TaskService, user_service: UserService
 ):
-    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     with pytest.raises(BadRequestError) as exc_info:
         task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.TODO)
@@ -116,7 +116,7 @@ def test_update_task_state_raises_bad_request_if_same_state_requested(
 def test_update_task_state_allows_moving_out_of_completed(
     task_service: TaskService, user_service: UserService
 ):
-    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.COMPLETED)
     updated = task_service.update_task_state(
@@ -126,7 +126,7 @@ def test_update_task_state_allows_moving_out_of_completed(
 
 
 def test_update_due_date(task_service: TaskService, user_service: UserService):
-    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     assert task.updatedAt is None
     new_due_date = datetime.now(timezone.utc) + timedelta(days=3)
@@ -136,7 +136,7 @@ def test_update_due_date(task_service: TaskService, user_service: UserService):
 
 
 def test_update_due_date_clears_existing_due_date(task_service: TaskService, user_service: UserService):
-    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     existing_due_date = datetime.now(timezone.utc) + timedelta(days=3)
     task_service.update_due_date(task.taskId, updated_by=user.userId, due_date=existing_due_date)
@@ -156,14 +156,14 @@ def test_get_task_raises_not_found(task_service: TaskService):
 def test_get_task_raises_forbidden_if_caller_is_neither_creator_nor_assignee(
     task_service: TaskService, user_service: UserService
 ):
-    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     with pytest.raises(ForbiddenError):
         task_service.get_task(task.taskId, current_user_id="outsider")
 
 
 def test_get_task_succeeds_for_creator(task_service: TaskService, user_service: UserService):
-    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     fetched = task_service.get_task(task.taskId, current_user_id=user.userId)
     assert fetched.taskId == task.taskId
@@ -172,7 +172,7 @@ def test_get_task_succeeds_for_creator(task_service: TaskService, user_service: 
 def test_update_task_meta_raises_forbidden_if_caller_is_not_creator(
     task_service: TaskService, user_service: UserService
 ):
-    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     with pytest.raises(ForbiddenError):
         task_service.update_task_meta(
@@ -187,8 +187,8 @@ def test_get_tasks_for_user_returns_created_and_assigned_sorted_by_latest(
     user_group_service,
     task_group_service,
 ):
-    creator = user_service.create_user(first_name="Ada", last_name="Lovelace")
-    other_owner = user_service.create_user(first_name="Bob", last_name="Smith")
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
+    other_owner = user_service.create_user(user_id="bob", first_name="Bob", last_name="Smith")
     task_a = task_service.create_task(task_title="Task A", created_by=creator.userId)
     task_b = task_service.create_task(task_title="Task B", created_by=other_owner.userId)
     group = group_service.create_group(

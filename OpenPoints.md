@@ -14,14 +14,21 @@ before any production use.
   postgresql@17`). Revisit if/when this needs to run in Docker.
 
 ## Auth & authorization
-- Authentication AND ownership authorization now exist on every endpoint
-  except `POST /api/v1/users` and `POST /api/v1/groups`/`POST /api/v1/tasks`
-  (creation endpoints — nothing to own yet, though auth is still required).
+- Authentication AND ownership authorization now exist on every endpoint,
+  including all three creation endpoints.
   `current_user_id: str = Depends(verify_firebase_token)` is an explicit
   function argument on every route (moved off the old router-level
   `dependencies=[...]` wiring), threaded into the service layer, which
   raises `app.exceptions.ForbiddenError` (→ HTTP 403) when the rule fails:
-  - Users: caller must be the `userId` in the path.
+  - `POST /api/v1/users`: no request-body `userId` field — `userId` is
+    always `current_user_id` (the caller's Firebase uid). Calling it
+    again for a uid that already has a `User` row raises `ConflictError`
+    (→ HTTP 409), since re-registration isn't an update path.
+  - `POST /api/v1/groups`: no request-body `groupCreaterId` field —
+    `groupCreaterId` is always `current_user_id`.
+  - `POST /api/v1/tasks`: no request-body `createdBy` field — `createdBy`
+    is always `current_user_id`.
+  - Users (read/update/status): caller must be the `userId` in the path.
   - Groups (read): caller must be the creator or a member. Groups
     (write): creator only. `GET /api/v1/users/{userId}/groups`: caller
     must be that `userId`.
@@ -33,14 +40,12 @@ before any production use.
     only.
   - `GET /api/v1/tasks`: returns tasks created by or assigned to the
     caller, sorted by most recently updated/created first.
-- The Firebase `uid` has NO mapping to this app's own `User.userId`.
-  These are two different, unrelated ID spaces: `User.userId` is a
-  server-generated UUID4 created by `UserService.create_user` with no
-  link back to Firebase identity. A future iteration would need an
-  explicit `User.firebaseUid` column (or equivalent lookup) to bridge the
-  two for this authorization to be meaningful in production — today it's
-  enforced but the two ID spaces don't actually correspond to anything at
-  signup time.
+- The Firebase `uid`-vs-`User.userId` ID-space mismatch noted in an
+  earlier revision of this doc is resolved for any user created from now
+  on: `UserService.create_user` requires an explicit `user_id` and the
+  router passes `current_user_id` (the Firebase uid) as that value, so
+  `User.userId` IS the Firebase uid going forward — no separate mapping
+  column needed.
 - Local prerequisite: `app/firebase/firebase-adminsdk.json` (a Firebase
   service-account credential, gitignored via `app/firebase/` in
   `.gitignore` and never committed) must be present on disk before the

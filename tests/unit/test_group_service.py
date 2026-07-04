@@ -32,7 +32,7 @@ def test_create_group_requires_existing_creator(group_service: GroupService):
 def test_create_group_succeeds_for_existing_creator(
     group_service: GroupService, user_service: UserService
 ):
-    creator = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     group = group_service.create_group(
         group_name="Smiths",
         group_desc="Family group",
@@ -47,8 +47,8 @@ def test_create_group_succeeds_for_existing_creator(
 def test_get_groups_by_creator_filters_correctly(
     group_service: GroupService, user_service: UserService
 ):
-    creator = user_service.create_user(first_name="Ada", last_name="Lovelace")
-    other = user_service.create_user(first_name="Bob", last_name="Smith")
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
+    other = user_service.create_user(user_id="bob", first_name="Bob", last_name="Smith")
     group_service.create_group(
         group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
     )
@@ -64,7 +64,7 @@ def test_get_groups_by_creator_filters_correctly(
 def test_update_group_does_not_change_category(
     group_service: GroupService, user_service: UserService
 ):
-    creator = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     group = group_service.create_group(
         group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
     )
@@ -74,7 +74,7 @@ def test_update_group_does_not_change_category(
 
 
 def test_set_status_updates_status(group_service: GroupService, user_service: UserService):
-    creator = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     group = group_service.create_group(
         group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
     )
@@ -85,7 +85,7 @@ def test_set_status_updates_status(group_service: GroupService, user_service: Us
 def test_get_group_raises_forbidden_if_caller_is_not_creator_or_member(
     group_service: GroupService, user_service: UserService
 ):
-    creator = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     group = group_service.create_group(
         group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
     )
@@ -94,7 +94,7 @@ def test_get_group_raises_forbidden_if_caller_is_not_creator_or_member(
 
 
 def test_get_group_succeeds_for_creator(group_service: GroupService, user_service: UserService):
-    creator = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     group = group_service.create_group(
         group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
     )
@@ -105,7 +105,7 @@ def test_get_group_succeeds_for_creator(group_service: GroupService, user_servic
 def test_update_group_raises_forbidden_if_caller_is_not_creator(
     group_service: GroupService, user_service: UserService
 ):
-    creator = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     group = group_service.create_group(
         group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
     )
@@ -116,6 +116,6 @@ def test_update_group_raises_forbidden_if_caller_is_not_creator(
 def test_get_groups_by_creator_raises_forbidden_if_caller_is_not_the_user(
     group_service: GroupService, user_service: UserService
 ):
-    creator = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     with pytest.raises(ForbiddenError):
         group_service.get_groups_by_creator(creator.userId, current_user_id="outsider")

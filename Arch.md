@@ -72,9 +72,10 @@ group referencing it) still share consistent state within a single test.
 ## Request flow example (create user)
 
 `POST /api/v1/users` → `api/v1/users.create_user` → `UserService.create_user`
-(generates UUID4, timestamps, builds `User` domain model) →
-`UserRepository.add` (inserts a row via SQLAlchemy) → router maps `User`
-domain model to `UserResponse` schema → FastAPI serializes to JSON.
+(`userId` = the caller's Firebase `current_user_id`, plus timestamps, builds
+`User` domain model) → `UserRepository.add` (inserts a row via SQLAlchemy) →
+router maps `User` domain model to `UserResponse` schema → FastAPI
+serializes to JSON.
 
 ## Testing strategy
 
@@ -100,18 +101,23 @@ domain model to `UserResponse` schema → FastAPI serializes to JSON.
 | GET | /api/v1/users/{userId} | Fetch a user |
 | PATCH | /api/v1/users/{userId} | Update name/phone/email |
 | PATCH | /api/v1/users/{userId}/status | Toggle ACTIVE/IN-ACTIVE |
+
 | POST | /api/v1/groups | Create a group |
 | GET | /api/v1/groups/{groupId} | Fetch a group |
 | GET | /api/v1/users/{userId}/groups | Fetch groups created by a user |
 | PATCH | /api/v1/groups/{groupId} | Update name/desc/iconUrl (not category) |
 | PATCH | /api/v1/groups/{groupId}/status | Toggle ACTIVE/IN-ACTIVE |
-| POST | /api/v1/groups/{groupId}/members | Associate a user to a group |
+
 | GET | /api/v1/groups/{groupId}/members | Fetch a group's members |
+| POST | /api/v1/groups/{groupId}/members | Associate a user to a group |
 | DELETE | /api/v1/groups/{groupId}/members/{userId} | De-associate a user from a group |
+
 | POST | /api/v1/tasks | Create a task |
 | GET | /api/v1/tasks/{taskId} | Fetch a task |
 | PATCH | /api/v1/tasks/{taskId} | Update title/desc |
 | PATCH | /api/v1/tasks/{taskId}/state | Move task to a new state |
 | PATCH | /api/v1/tasks/{taskId}/due-date | Update due date |
+
+
 | POST | /api/v1/groups/{groupId}/tasks/{taskId}/assignee | Assign task to a user within a group |
 | DELETE | /api/v1/groups/{groupId}/tasks/{taskId}/assignee/{assigneeId} | Remove that assignment |

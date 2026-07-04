@@ -8,7 +8,6 @@ from app.models.enums import TaskState
 
 class TaskCreateRequest(BaseModel):
     taskTitle: str
-    createdBy: str
     taskDesc: Optional[str] = None
     taskDueDate: Optional[datetime] = None
 

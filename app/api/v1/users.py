@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth import verify_firebase_token
 from app.dependencies import get_user_service
-from app.exceptions import ForbiddenError, NotFoundError
+from app.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.models.user import User
 from app.schemas.user import (
     NameSchema,
@@ -28,16 +28,27 @@ def _to_response(user: User) -> UserResponse:
     )
 
 
-@router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={409: {"description": "User already exists"}},
+)
 def create_user(
-    payload: UserCreateRequest, service: UserService = Depends(get_user_service)
+    payload: UserCreateRequest,
+    current_user_id: str = Depends(verify_firebase_token),
+    service: UserService = Depends(get_user_service),
 ) -> UserResponse:
-    user = service.create_user(
-        first_name=payload.firstName,
-        last_name=payload.lastName,
-        phone_num=payload.phoneNum,
-        email_id=payload.emailId,
-    )
+    try:
+        user = service.create_user(
+            user_id=current_user_id,
+            first_name=payload.firstName,
+            last_name=payload.lastName,
+            phone_num=payload.phoneNum,
+            email_id=payload.emailId,
+        )
+    except ConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return _to_response(user)
 
 

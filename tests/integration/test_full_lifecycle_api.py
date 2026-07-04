@@ -1,31 +1,31 @@
-def _create_user(client, first_name="Ada", last_name="Lovelace"):
+def _create_user(client, authenticate_as, user_id, first_name="Ada", last_name="Lovelace"):
+    authenticate_as(user_id)
     return client.post(
         "/api/v1/users", json={"firstName": first_name, "lastName": last_name}
     ).json()["userId"]
 
 
-def _create_group(client, creator_id):
+def _create_group(client, authenticate_as, creator_id):
+    authenticate_as(creator_id)
     return client.post(
-        "/api/v1/groups",
-        json={"groupName": "Smiths", "groupCategory": "Family", "groupCreaterId": creator_id},
+        "/api/v1/groups", json={"groupName": "Smiths", "groupCategory": "Family"}
     ).json()["groupId"]
 
 
-def _create_task(client, creator_id):
-    return client.post(
-        "/api/v1/tasks", json={"taskTitle": "Buy milk", "createdBy": creator_id}
-    ).json()["taskId"]
+def _create_task(client, authenticate_as, creator_id):
+    authenticate_as(creator_id)
+    return client.post("/api/v1/tasks", json={"taskTitle": "Buy milk"}).json()["taskId"]
 
 
 def test_full_cross_entity_lifecycle(client, authenticate_as):
     # 1. Create the owner user.
-    owner_id = _create_user(client, first_name="Ada", last_name="Lovelace")
+    owner_id = _create_user(client, authenticate_as, "owner", first_name="Ada", last_name="Lovelace")
 
     # 2. Create the member/assignee user.
-    member_id = _create_user(client, first_name="Bob", last_name="Smith")
+    member_id = _create_user(client, authenticate_as, "member", first_name="Bob", last_name="Smith")
 
     # 3. Create a group with the owner as creator.
-    group_id = _create_group(client, owner_id)
+    group_id = _create_group(client, authenticate_as, owner_id)
 
     # Authenticate as the owner for every subsequent ownership-gated call in
     # this lifecycle (disassociate at the end also allows the creator, so no
@@ -42,7 +42,7 @@ def test_full_cross_entity_lifecycle(client, authenticate_as):
     assert associate_response.json()["groupId"] == group_id
 
     # 5. Create a task, created by the owner.
-    task_id = _create_task(client, owner_id)
+    task_id = _create_task(client, authenticate_as, owner_id)
 
     # 6. Assign the task to the member within the group.
     assign_response = client.post(

@@ -1,8 +1,7 @@
-import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.exceptions import ForbiddenError, NotFoundError
+from app.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.models.enums import UserStatus
 from app.models.user import Name, User
 from app.repositories.base import BaseRepository
@@ -14,14 +13,17 @@ class UserService:
 
     def create_user(
         self,
+        user_id: str,
         first_name: str,
         last_name: str,
         phone_num: Optional[str] = None,
         email_id: Optional[str] = None,
     ) -> User:
+        if self._repository.get(user_id) is not None:
+            raise ConflictError(f"User {user_id} already exists")
         now = datetime.now(timezone.utc)
         user = User(
-            userId=str(uuid.uuid4()),
+            userId=user_id,
             name=Name(firstName=first_name, lastName=last_name),
             phoneNum=phone_num,
             emailId=email_id,

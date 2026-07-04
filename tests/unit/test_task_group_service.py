@@ -49,8 +49,8 @@ def task_group_service(
 
 
 def _setup(user_service, group_service, task_service, user_group_service):
-    creator = user_service.create_user(first_name="Ada", last_name="Lovelace")
-    assignee = user_service.create_user(first_name="Bob", last_name="Smith")
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
+    assignee = user_service.create_user(user_id="bob", first_name="Bob", last_name="Smith")
     group = group_service.create_group(
         group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
     )
@@ -87,7 +87,7 @@ def test_assign_raises_bad_request_if_assignee_not_group_member(
     task_group_service, user_service, group_service, task_service, user_group_service
 ):
     _, _, group, task = _setup(user_service, group_service, task_service, user_group_service)
-    outsider = user_service.create_user(first_name="Cara", last_name="Jones")
+    outsider = user_service.create_user(user_id="cara", first_name="Cara", last_name="Jones")
     with pytest.raises(BadRequestError) as exc_info:
         task_group_service.assign(task.taskId, group.groupId, outsider.userId)
     assert exc_info.value.error_code == ErrorCode.ASSIGNEE_NOT_GROUP_MEMBER
@@ -119,7 +119,7 @@ def test_assign_twice_updates_existing_relationship(
     task_group_service, user_service, group_service, task_service, user_group_service
 ):
     creator, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
-    other_member = user_service.create_user(first_name="Cara", last_name="Jones")
+    other_member = user_service.create_user(user_id="cara", first_name="Cara", last_name="Jones")
     user_group_service.associate(other_member.userId, group.groupId, "Member")
     first = task_group_service.assign(task.taskId, group.groupId, assignee.userId)
     second = task_group_service.assign(task.taskId, group.groupId, other_member.userId)

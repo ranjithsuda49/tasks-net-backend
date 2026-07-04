@@ -45,7 +45,7 @@ def create_group(
             group_name=payload.groupName,
             group_desc=payload.groupDesc,
             group_category=payload.groupCategory,
-            creater_id=payload.groupCreaterId,
+            creater_id=current_user_id,
             group_icon_url=payload.groupIconUrl,
         )
     except NotFoundError as exc:

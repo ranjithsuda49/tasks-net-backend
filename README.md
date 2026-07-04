@@ -13,6 +13,24 @@ relationships — built with FastAPI and PostgreSQL.
 
 See `Arch.md` for the full endpoint inventory.
 
+## Authentication & ownership
+
+Every endpoint requires a Firebase ID token (`Authorization: Bearer <token>`).
+The authenticated caller's uid drives both identity and ownership — it is
+never taken from the request body:
+
+- `POST /api/v1/users` — no `userId` field; the new user's `userId` is the
+  caller's Firebase uid. Calling it again for a uid that already has a user
+  returns `409 Conflict`.
+- `POST /api/v1/groups` — no `groupCreaterId` field; the group's creator is
+  the caller.
+- `POST /api/v1/tasks` — no `createdBy` field; the task's creator is the
+  caller.
+- All other endpoints enforce ownership (e.g. only a group's creator or
+  members can fetch it) and return `403 Forbidden` otherwise.
+
+See `OpenPoints.md` for the full rule-by-rule breakdown.
+
 ## Requirements
 
 Python 3.13+

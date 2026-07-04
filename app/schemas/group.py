@@ -10,7 +10,6 @@ class GroupCreateRequest(BaseModel):
     groupName: str
     groupDesc: Optional[str] = None
     groupCategory: str
-    groupCreaterId: str
     groupIconUrl: Optional[str] = None
 
 

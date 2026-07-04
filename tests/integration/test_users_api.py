@@ -20,11 +20,13 @@ def test_fetch_unknown_user_returns_404(client):
     assert response.status_code == 404
 
 
-def test_get_user_wrong_caller_returns_403(client):
+def test_get_user_wrong_caller_returns_403(client, authenticate_as):
+    authenticate_as("owner")
     user_id = client.post(
         "/api/v1/users", json={"firstName": "Ada", "lastName": "Lovelace"}
     ).json()["userId"]
 
+    authenticate_as("someone-else")
     response = client.get(f"/api/v1/users/{user_id}")
     assert response.status_code == 403
 
@@ -40,11 +42,13 @@ def test_update_user_fields(client, authenticate_as):
     assert response.json()["name"]["lastName"] == "King"
 
 
-def test_update_user_wrong_caller_returns_403(client):
+def test_update_user_wrong_caller_returns_403(client, authenticate_as):
+    authenticate_as("owner")
     user_id = client.post(
         "/api/v1/users", json={"firstName": "Ada", "lastName": "Lovelace"}
     ).json()["userId"]
 
+    authenticate_as("someone-else")
     response = client.patch(f"/api/v1/users/{user_id}", json={"lastName": "King"})
     assert response.status_code == 403
 
