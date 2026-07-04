@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Firebase service-account credentials (secret, never commit)
+app/firebase/
