@@ -7,16 +7,17 @@
 2. **services** — Business logic. Most services take `BaseRepository`
    abstractions in their constructor (constructor injection). A few
    (`GroupService`, `UserGroupService`, `TaskGroupService`) instead depend on
-   a concrete `InMemory*Repository` because they need an entity-specific
-   query method (e.g. `list_by_creator`, `find_by_user_and_group`) that isn't
-   part of the generic `BaseRepository[T]` interface — see the SOLID mapping
-   below for the same caveat. This is still the Dependency Inversion seam for
-   the common case: swapping in-memory storage for a real DB later means
-   writing new repository classes, with services and routers unchanged
-   wherever they depend on the abstraction.
+   the concrete `GroupRepository`/`UserGroupRepository`/`TaskGroupRepository`
+   class because they need an entity-specific query method (e.g.
+   `list_by_creator`, `find_by_user_and_group`) that isn't part of the
+   generic `BaseRepository[T]` interface — see the SOLID mapping below for
+   the same caveat.
 3. **repositories** — `BaseRepository[T]` (abstract) defines `add`, `get`,
-   `update`, `list_all`. `InMemory*Repository` classes implement it with a
-   `dict[str, T]` keyed by entity ID. One repository per entity/relationship.
+   `update`, `list_all`. Each entity has one Postgres-backed repository
+   class (`UserRepository`, `GroupRepository`, `TaskRepository`,
+   `UserGroupRepository`, `TaskGroupRepository`) implementing it via a
+   SQLAlchemy `Session`, mapping Pydantic domain models to/from the ORM rows
+   defined in `app/db/orm_models.py`. One repository per entity/relationship.
 4. **models** — Domain entities (Pydantic models), the shape of truth held by
    repositories.
 5. **schemas** — API request/response contracts (Pydantic models), decoupled
@@ -26,16 +27,19 @@
 ## Dependency Injection / Composition Root
 
 `app/dependencies.py` is the only place that constructs concrete repository
-and service instances. Repository providers are `@lru_cache`d so the app
-uses one singleton per repository per process (in-memory data must persist
-across requests within a process). Services are built fresh per-request by
-composing the cached repositories via FastAPI's `Depends`.
+and service instances. Repository providers build a repository per request
+from a SQLAlchemy `Session` (`app/db/session.get_db_session`, itself a
+`Depends`), so every repository used within one request shares one
+`Session`/transaction, committed or rolled back atomically at the end of
+the request. Services are built fresh per-request by composing the
+per-request repositories via FastAPI's `Depends`.
 
 Tests override the service-level provider functions (via
-`app.dependency_overrides`) with a shared set of freshly constructed
-repositories/services per test, so tests never see state from other tests
-and cross-entity integration tests (e.g. create a user, then a group
-referencing it) still share consistent state within a single test.
+`app.dependency_overrides`) with a shared set of repositories/services per
+test, each built from a transactional `db_session` fixture (`tests/conftest.py`)
+that's rolled back at the end of the test — so tests never see state from
+other tests and cross-entity integration tests (e.g. create a user, then a
+group referencing it) still share consistent state within a single test.
 
 ## SOLID mapping
 
@@ -49,10 +53,10 @@ referencing it) still share consistent state within a single test.
   interface, so no repository is forced to implement methods it doesn't need.
 - **D**: most services and routers depend on the `BaseRepository[T]`
   abstraction, injected via `Depends`. A few services (`GroupService`,
-  `UserGroupService`, `TaskGroupService`) depend on a concrete
-  `InMemory*Repository` type instead, because they need an entity-specific
-  query method (e.g. `list_by_creator`, `find_by_user_and_group`) that
-  isn't part of the generic `BaseRepository[T]` interface.
+  `UserGroupService`, `TaskGroupService`) depend on a concrete repository
+  type instead, because they need an entity-specific query method (e.g.
+  `list_by_creator`, `find_by_user_and_group`) that isn't part of the
+  generic `BaseRepository[T]` interface.
 
 ## Entity relationships
 
@@ -65,18 +69,24 @@ referencing it) still share consistent state within a single test.
 
 `POST /api/v1/users` → `api/v1/users.create_user` → `UserService.create_user`
 (generates UUID4, timestamps, builds `User` domain model) →
-`InMemoryUserRepository.add` (stores in dict) → router maps `User` domain
-model to `UserResponse` schema → FastAPI serializes to JSON.
+`UserRepository.add` (inserts a row via SQLAlchemy) → router maps `User`
+domain model to `UserResponse` schema → FastAPI serializes to JSON.
 
 ## Testing strategy
 
-- **Unit tests** (`tests/unit/`) instantiate a service directly with a fresh
-  `InMemory*Repository`, bypassing HTTP entirely.
+- **Unit tests** (`tests/unit/`) instantiate a service directly with a
+  repository built from the shared transactional `db_session` fixture,
+  bypassing HTTP entirely.
 - **Integration tests** (`tests/integration/`) use FastAPI's `TestClient`
   against the real app with `app.dependency_overrides` pointed at
-  freshly-constructed repositories/services per test (see
-  `tests/conftest.py`), exercising the full router → service → repository
-  path.
+  repositories/services built from the same `db_session` fixture per test
+  (see `tests/conftest.py`), exercising the full router → service →
+  repository path against real Postgres.
+- **Repository tests** (`tests/repositories/`) exercise each repository
+  directly against real Postgres — `add`/`get`/`update`/`list_all` plus
+  entity-specific extras, including unique-constraint violations and the
+  `TaskGroupRepository.update()` "clears `assigneeId`, never deletes the
+  row" guarantee.
 
 ## API Endpoint Inventory (v1)
 

@@ -4,14 +4,14 @@ Tracked gaps and decisions deferred during the initial build. Revisit these
 before any production use.
 
 ## Persistence
-- All data lives in in-process Python dicts and is lost on restart or
-  process crash. No database is wired up yet (explicitly out of scope per
-  `requirements.md`). When a DB is introduced, only new repository classes
-  implementing `BaseRepository[T]` should be needed — see `Arch.md`.
-- Repositories are not thread-safe / process-safe. Running with multiple
-  Uvicorn workers will give each worker its own independent in-memory state.
-  Fine for local dev/demo; must be fixed (shared store or single worker)
-  before any multi-worker deployment.
+- The app is backed entirely by PostgreSQL 17 via SQLAlchemy + psycopg3,
+  with Alembic managing schema migrations (`migrations/`). No in-memory
+  storage remains anywhere in the codebase, including tests — the full
+  suite (`tests/unit`, `tests/integration`, `tests/repositories`) requires
+  a running local Postgres (`tasks_net_db_test`).
+- `docker-compose.yml` does not run Postgres — local development targets
+  the Postgres 17 instance installed via Homebrew (`brew services start
+  postgresql@17`). Revisit if/when this needs to run in Docker.
 
 ## Auth & authorization
 - No authentication or authorization exists on any endpoint. Anyone can

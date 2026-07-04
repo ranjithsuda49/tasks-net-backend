@@ -1,7 +1,7 @@
 # TaskNest
 
 Backend REST API for TaskNest — Users, Groups, Tasks, and their
-relationships — built with FastAPI and in-memory storage.
+relationships — built with FastAPI and PostgreSQL.
 
 ## Features
 
@@ -11,7 +11,7 @@ relationships — built with FastAPI and in-memory storage.
 - **Tasks** — create, fetch, update title/desc, move between states (TODO / IN-PROGRESS / COMPLETED), update due date.
 - **Task-Group relationships** — assign/unassign a task to a user within a group.
 
-See `requirements.md` for the original spec and `Arch.md` for the full endpoint inventory.
+See `Arch.md` for the full endpoint inventory.
 
 ## Requirements
 
@@ -36,8 +36,10 @@ docker compose up --build
 
 API available at http://localhost:8000 (Swagger UI at /docs). The image
 installs only `requirements.txt` (no test tooling) and runs a single
-Uvicorn worker — the in-memory store isn't safe to share across workers,
-see `OpenPoints.md`.
+Uvicorn worker. Note: `docker-compose.yml` does not run Postgres — the
+containerized `api` service needs a reachable `DATABASE_URL` (e.g.
+pointing at the host's local Postgres) to actually connect, see
+`OpenPoints.md`.
 
 ## Test
 
@@ -46,11 +48,11 @@ pytest -v
 See `Arch.md` for architecture and the full endpoint inventory, and
 `OpenPoints.md` for known gaps and deferred decisions.
 
-## PostgreSQL (local, for future DB work)
+## PostgreSQL
 
-The app currently uses in-memory storage only — no code connects to
-Postgres yet (see `OpenPoints.md`). PostgreSQL 17 is installed locally via
-Homebrew in preparation for that work.
+The app is backed entirely by PostgreSQL 17 via SQLAlchemy + psycopg3, with
+Alembic managing schema migrations. PostgreSQL 17 is installed locally via
+Homebrew.
 
 Install:
 
@@ -68,3 +70,14 @@ Check status:
 
     brew services list | grep postgresql
     pg_isready
+
+### Database setup (one-time)
+
+    createdb tasks_net_db
+    createdb tasks_net_db_test
+    alembic upgrade head
+
+### Running the test suite
+
+The full suite (`pytest -v`) requires the local Postgres service to be
+running (`brew services start postgresql@17`) and both databases created.
