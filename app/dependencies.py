@@ -26,15 +26,16 @@ def get_group_repository(session: Session = Depends(get_db_session)) -> GroupRep
     return GroupRepository(session)
 
 
+def get_user_group_repository(session: Session = Depends(get_db_session)) -> UserGroupRepository:
+    return UserGroupRepository(session)
+
+
 def get_group_service(
     repository: GroupRepository = Depends(get_group_repository),
     user_service: UserService = Depends(get_user_service),
+    user_group_repository: UserGroupRepository = Depends(get_user_group_repository),
 ) -> GroupService:
-    return GroupService(repository, user_service)
-
-
-def get_user_group_repository(session: Session = Depends(get_db_session)) -> UserGroupRepository:
-    return UserGroupRepository(session)
+    return GroupService(repository, user_service, user_group_repository)
 
 
 def get_user_group_service(
