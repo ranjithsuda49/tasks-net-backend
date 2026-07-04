@@ -1,6 +1,12 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import sessionmaker
 
+# from app.db import orm_models  # noqa: F401  -- uncommented in Task 2
+from app.db.base import Base
 from app.dependencies import (
     get_group_service,
     get_task_group_service,
@@ -19,6 +25,39 @@ from app.services.task_group_service import TaskGroupService
 from app.services.task_service import TaskService
 from app.services.user_group_service import UserGroupService
 from app.services.user_service import UserService
+
+# TEST_DATABASE_URL = os.environ.get(
+#     "TEST_DATABASE_URL", "postgresql+psycopg://ranjith@localhost:5432/tasks_net_db_test"
+# )
+# engine = create_engine(TEST_DATABASE_URL)
+
+
+# @pytest.fixture(scope="session", autouse=True)
+# def _schema():
+#     Base.metadata.create_all(engine)
+#     yield
+#     Base.metadata.drop_all(engine)
+
+
+# @pytest.fixture
+# def db_session():
+#     connection = engine.connect()
+#     outer_txn = connection.begin()
+#     session_factory = sessionmaker(bind=connection)
+#     session = session_factory()
+#     nested = connection.begin_nested()
+#
+#     @event.listens_for(session, "after_transaction_end")
+#     def _restart_savepoint(sess, trans):
+#         nonlocal nested
+#         if not nested.is_active:
+#             nested = connection.begin_nested()
+#
+#     yield session
+#
+#     session.close()
+#     outer_txn.rollback()
+#     connection.close()
 
 
 @pytest.fixture
