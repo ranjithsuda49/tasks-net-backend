@@ -70,9 +70,9 @@ def client(db_session):
     task_group_repo = TaskGroupRepository(db_session)
 
     user_service = UserService(user_repo)
-    group_service = GroupService(group_repo, user_service)
+    group_service = GroupService(group_repo, user_service, user_group_repo)
     user_group_service = UserGroupService(user_group_repo, user_service, group_service)
-    task_service = TaskService(task_repo, user_service)
+    task_service = TaskService(task_repo, user_service, task_group_repo)
     task_group_service = TaskGroupService(
         task_group_repo, task_service, group_service, user_service, user_group_service
     )
@@ -91,6 +91,13 @@ def client(db_session):
 
 
 @pytest.fixture
+def authenticate_as():
+    def _authenticate_as(user_id: str) -> None:
+        app.dependency_overrides[verify_firebase_token] = lambda: user_id
+    return _authenticate_as
+
+
+@pytest.fixture
 def unauthenticated_client(db_session):
     user_repo = UserRepository(db_session)
     group_repo = GroupRepository(db_session)
@@ -99,9 +106,9 @@ def unauthenticated_client(db_session):
     task_group_repo = TaskGroupRepository(db_session)
 
     user_service = UserService(user_repo)
-    group_service = GroupService(group_repo, user_service)
+    group_service = GroupService(group_repo, user_service, user_group_repo)
     user_group_service = UserGroupService(user_group_repo, user_service, group_service)
-    task_service = TaskService(task_repo, user_service)
+    task_service = TaskService(task_repo, user_service, task_group_repo)
     task_group_service = TaskGroupService(
         task_group_repo, task_service, group_service, user_service, user_group_service
     )
