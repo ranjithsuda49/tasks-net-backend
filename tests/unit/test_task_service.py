@@ -67,7 +67,18 @@ def test_update_task_state_raises_bad_request_if_already_completed(
     task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.COMPLETED)
     with pytest.raises(BadRequestError) as exc_info:
         task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.COMPLETED)
-    assert exc_info.value.error_code == ErrorCode.TASK_ALREADY_COMPLETED
+    assert exc_info.value.error_code == ErrorCode.TASK_ALREADY_IN_REQUESTED_STATE
+    assert exc_info.value.http_code == 400
+
+
+def test_update_task_state_raises_bad_request_if_same_state_requested(
+    task_service: TaskService, user_service: UserService
+):
+    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
+    with pytest.raises(BadRequestError) as exc_info:
+        task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.TODO)
+    assert exc_info.value.error_code == ErrorCode.TASK_ALREADY_IN_REQUESTED_STATE
     assert exc_info.value.http_code == 400
 
 

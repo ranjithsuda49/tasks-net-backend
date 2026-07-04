@@ -108,3 +108,16 @@ def test_update_task_due_date_to_null_clears_it(client):
     )
     assert response.status_code == 200
     assert response.json()["taskDueDate"] is None
+
+
+def test_update_task_state_same_state_returns_400(client):
+    user_id = _create_user(client)
+    task_id = client.post(
+        "/api/v1/tasks", json={"taskTitle": "Buy milk", "createdBy": user_id}
+    ).json()["taskId"]
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_id}/state", json={"updatedBy": user_id, "taskState": "TODO"}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"]["errorCode"] == "ERR_TASKS_002"

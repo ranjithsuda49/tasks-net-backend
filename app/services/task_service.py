@@ -64,8 +64,8 @@ class TaskService:
     def update_task_state(self, task_id: str, updated_by: str, new_state: TaskState) -> Task:
         self._user_service.get_user(updated_by)
         task = self.get_task(task_id)
-        if task.taskState == TaskState.COMPLETED and new_state == TaskState.COMPLETED:
-            raise BadRequestError(ErrorCode.TASK_ALREADY_COMPLETED)
+        if task.taskState == new_state:
+            raise BadRequestError(ErrorCode.TASK_ALREADY_IN_REQUESTED_STATE)
         updated = task.model_copy(
             update={
                 "taskState": new_state,
