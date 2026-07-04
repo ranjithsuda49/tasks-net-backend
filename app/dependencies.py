@@ -1,10 +1,12 @@
-from functools import lru_cache
+from fastapi import Depends
+from sqlalchemy.orm import Session
 
-from app.repositories.group_repository import InMemoryGroupRepository
-from app.repositories.task_group_repository import InMemoryTaskGroupRepository
-from app.repositories.task_repository import InMemoryTaskRepository
-from app.repositories.user_group_repository import InMemoryUserGroupRepository
-from app.repositories.user_repository import InMemoryUserRepository
+from app.db.session import get_db_session
+from app.repositories.group_repository import GroupRepository
+from app.repositories.task_group_repository import TaskGroupRepository
+from app.repositories.task_repository import TaskRepository
+from app.repositories.user_group_repository import UserGroupRepository
+from app.repositories.user_repository import UserRepository
 from app.services.group_service import GroupService
 from app.services.task_group_service import TaskGroupService
 from app.services.task_service import TaskService
@@ -12,52 +14,59 @@ from app.services.user_group_service import UserGroupService
 from app.services.user_service import UserService
 
 
-@lru_cache
-def get_user_repository() -> InMemoryUserRepository:
-    return InMemoryUserRepository()
+def get_user_repository(session: Session = Depends(get_db_session)) -> UserRepository:
+    return UserRepository(session)
 
 
-def get_user_service() -> UserService:
-    return UserService(get_user_repository())
+def get_user_service(repository: UserRepository = Depends(get_user_repository)) -> UserService:
+    return UserService(repository)
 
 
-@lru_cache
-def get_group_repository() -> InMemoryGroupRepository:
-    return InMemoryGroupRepository()
+def get_group_repository(session: Session = Depends(get_db_session)) -> GroupRepository:
+    return GroupRepository(session)
 
 
-def get_group_service() -> GroupService:
-    return GroupService(get_group_repository(), get_user_service())
+def get_group_service(
+    repository: GroupRepository = Depends(get_group_repository),
+    user_service: UserService = Depends(get_user_service),
+) -> GroupService:
+    return GroupService(repository, user_service)
 
 
-@lru_cache
-def get_user_group_repository() -> InMemoryUserGroupRepository:
-    return InMemoryUserGroupRepository()
+def get_user_group_repository(session: Session = Depends(get_db_session)) -> UserGroupRepository:
+    return UserGroupRepository(session)
 
 
-def get_user_group_service() -> UserGroupService:
-    return UserGroupService(get_user_group_repository(), get_user_service(), get_group_service())
+def get_user_group_service(
+    repository: UserGroupRepository = Depends(get_user_group_repository),
+    user_service: UserService = Depends(get_user_service),
+    group_service: GroupService = Depends(get_group_service),
+) -> UserGroupService:
+    return UserGroupService(repository, user_service, group_service)
 
 
-@lru_cache
-def get_task_repository() -> InMemoryTaskRepository:
-    return InMemoryTaskRepository()
+def get_task_repository(session: Session = Depends(get_db_session)) -> TaskRepository:
+    return TaskRepository(session)
 
 
-def get_task_service() -> TaskService:
-    return TaskService(get_task_repository(), get_user_service())
+def get_task_service(
+    repository: TaskRepository = Depends(get_task_repository),
+    user_service: UserService = Depends(get_user_service),
+) -> TaskService:
+    return TaskService(repository, user_service)
 
 
-@lru_cache
-def get_task_group_repository() -> InMemoryTaskGroupRepository:
-    return InMemoryTaskGroupRepository()
+def get_task_group_repository(session: Session = Depends(get_db_session)) -> TaskGroupRepository:
+    return TaskGroupRepository(session)
 
 
-def get_task_group_service() -> TaskGroupService:
+def get_task_group_service(
+    repository: TaskGroupRepository = Depends(get_task_group_repository),
+    task_service: TaskService = Depends(get_task_service),
+    group_service: GroupService = Depends(get_group_service),
+    user_service: UserService = Depends(get_user_service),
+    user_group_service: UserGroupService = Depends(get_user_group_service),
+) -> TaskGroupService:
     return TaskGroupService(
-        get_task_group_repository(),
-        get_task_service(),
-        get_group_service(),
-        get_user_service(),
-        get_user_group_service(),
+        repository, task_service, group_service, user_service, user_group_service
     )

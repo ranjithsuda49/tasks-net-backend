@@ -1,11 +1,11 @@
 import pytest
 
 from app.exceptions import BadRequestError, ErrorCode, NotFoundError
-from app.repositories.group_repository import InMemoryGroupRepository
-from app.repositories.task_group_repository import InMemoryTaskGroupRepository
-from app.repositories.task_repository import InMemoryTaskRepository
-from app.repositories.user_group_repository import InMemoryUserGroupRepository
-from app.repositories.user_repository import InMemoryUserRepository
+from app.repositories.group_repository import GroupRepository
+from app.repositories.task_group_repository import TaskGroupRepository
+from app.repositories.task_repository import TaskRepository
+from app.repositories.user_group_repository import UserGroupRepository
+from app.repositories.user_repository import UserRepository
 from app.services.group_service import GroupService
 from app.services.task_group_service import TaskGroupService
 from app.services.task_service import TaskService
@@ -14,34 +14,37 @@ from app.services.user_service import UserService
 
 
 @pytest.fixture
-def user_service() -> UserService:
-    return UserService(InMemoryUserRepository())
+def user_service(db_session) -> UserService:
+    return UserService(UserRepository(db_session))
 
 
 @pytest.fixture
-def group_service(user_service: UserService) -> GroupService:
-    return GroupService(InMemoryGroupRepository(), user_service)
+def group_service(db_session, user_service: UserService) -> GroupService:
+    return GroupService(GroupRepository(db_session), user_service)
 
 
 @pytest.fixture
-def task_service(user_service: UserService) -> TaskService:
-    return TaskService(InMemoryTaskRepository(), user_service)
+def task_service(db_session, user_service: UserService) -> TaskService:
+    return TaskService(TaskRepository(db_session), user_service)
 
 
 @pytest.fixture
-def user_group_service(user_service: UserService, group_service: GroupService) -> UserGroupService:
-    return UserGroupService(InMemoryUserGroupRepository(), user_service, group_service)
+def user_group_service(
+    db_session, user_service: UserService, group_service: GroupService
+) -> UserGroupService:
+    return UserGroupService(UserGroupRepository(db_session), user_service, group_service)
 
 
 @pytest.fixture
 def task_group_service(
+    db_session,
     task_service: TaskService,
     group_service: GroupService,
     user_service: UserService,
     user_group_service: UserGroupService,
 ) -> TaskGroupService:
     return TaskGroupService(
-        InMemoryTaskGroupRepository(), task_service, group_service, user_service, user_group_service
+        TaskGroupRepository(db_session), task_service, group_service, user_service, user_group_service
     )
 
 

@@ -5,12 +5,12 @@ from typing import Optional
 from app.exceptions import NotFoundError
 from app.models.enums import GroupStatus
 from app.models.group import Group
-from app.repositories.group_repository import InMemoryGroupRepository
+from app.repositories.group_repository import GroupRepository
 from app.services.user_service import UserService
 
 
 class GroupService:
-    def __init__(self, repository: InMemoryGroupRepository, user_service: UserService):
+    def __init__(self, repository: GroupRepository, user_service: UserService):
         self._repository = repository
         self._user_service = user_service
 

@@ -15,11 +15,11 @@ from app.dependencies import (
     get_user_service,
 )
 from app.main import app
-from app.repositories.group_repository import InMemoryGroupRepository
-from app.repositories.task_group_repository import InMemoryTaskGroupRepository
-from app.repositories.task_repository import InMemoryTaskRepository
-from app.repositories.user_group_repository import InMemoryUserGroupRepository
-from app.repositories.user_repository import InMemoryUserRepository
+from app.repositories.group_repository import GroupRepository
+from app.repositories.task_group_repository import TaskGroupRepository
+from app.repositories.task_repository import TaskRepository
+from app.repositories.user_group_repository import UserGroupRepository
+from app.repositories.user_repository import UserRepository
 from app.services.group_service import GroupService
 from app.services.task_group_service import TaskGroupService
 from app.services.task_service import TaskService
@@ -61,12 +61,12 @@ def db_session():
 
 
 @pytest.fixture
-def client():
-    user_repo = InMemoryUserRepository()
-    group_repo = InMemoryGroupRepository()
-    user_group_repo = InMemoryUserGroupRepository()
-    task_repo = InMemoryTaskRepository()
-    task_group_repo = InMemoryTaskGroupRepository()
+def client(db_session):
+    user_repo = UserRepository(db_session)
+    group_repo = GroupRepository(db_session)
+    user_group_repo = UserGroupRepository(db_session)
+    task_repo = TaskRepository(db_session)
+    task_group_repo = TaskGroupRepository(db_session)
 
     user_service = UserService(user_repo)
     group_service = GroupService(group_repo, user_service)

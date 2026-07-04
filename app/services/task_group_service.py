@@ -2,7 +2,7 @@ import uuid
 
 from app.exceptions import BadRequestError, ErrorCode, NotFoundError
 from app.models.task_group import TaskGroupRelationship
-from app.repositories.task_group_repository import InMemoryTaskGroupRepository
+from app.repositories.task_group_repository import TaskGroupRepository
 from app.services.group_service import GroupService
 from app.services.task_service import TaskService
 from app.services.user_group_service import UserGroupService
@@ -12,7 +12,7 @@ from app.services.user_service import UserService
 class TaskGroupService:
     def __init__(
         self,
-        repository: InMemoryTaskGroupRepository,
+        repository: TaskGroupRepository,
         task_service: TaskService,
         group_service: GroupService,
         user_service: UserService,

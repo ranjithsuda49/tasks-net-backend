@@ -2,20 +2,20 @@ import pytest
 
 from app.exceptions import NotFoundError
 from app.models.enums import GroupStatus
-from app.repositories.group_repository import InMemoryGroupRepository
-from app.repositories.user_repository import InMemoryUserRepository
+from app.repositories.group_repository import GroupRepository
+from app.repositories.user_repository import UserRepository
 from app.services.group_service import GroupService
 from app.services.user_service import UserService
 
 
 @pytest.fixture
-def user_service() -> UserService:
-    return UserService(InMemoryUserRepository())
+def user_service(db_session) -> UserService:
+    return UserService(UserRepository(db_session))
 
 
 @pytest.fixture
-def group_service(user_service: UserService) -> GroupService:
-    return GroupService(InMemoryGroupRepository(), user_service)
+def group_service(db_session, user_service: UserService) -> GroupService:
+    return GroupService(GroupRepository(db_session), user_service)
 
 
 def test_create_group_requires_existing_creator(group_service: GroupService):

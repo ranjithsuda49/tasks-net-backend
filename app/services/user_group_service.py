@@ -2,7 +2,7 @@ import uuid
 
 from app.exceptions import BadRequestError, ErrorCode, NotFoundError
 from app.models.user_group import UserGroupRelationship
-from app.repositories.user_group_repository import InMemoryUserGroupRepository
+from app.repositories.user_group_repository import UserGroupRepository
 from app.services.group_service import GroupService
 from app.services.user_service import UserService
 
@@ -10,7 +10,7 @@ from app.services.user_service import UserService
 class UserGroupService:
     def __init__(
         self,
-        repository: InMemoryUserGroupRepository,
+        repository: UserGroupRepository,
         user_service: UserService,
         group_service: GroupService,
     ):

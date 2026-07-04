@@ -4,20 +4,20 @@ import pytest
 
 from app.exceptions import BadRequestError, ErrorCode, NotFoundError
 from app.models.enums import TaskState
-from app.repositories.task_repository import InMemoryTaskRepository
-from app.repositories.user_repository import InMemoryUserRepository
+from app.repositories.task_repository import TaskRepository
+from app.repositories.user_repository import UserRepository
 from app.services.task_service import TaskService
 from app.services.user_service import UserService
 
 
 @pytest.fixture
-def user_service() -> UserService:
-    return UserService(InMemoryUserRepository())
+def user_service(db_session) -> UserService:
+    return UserService(UserRepository(db_session))
 
 
 @pytest.fixture
-def task_service(user_service: UserService) -> TaskService:
-    return TaskService(InMemoryTaskRepository(), user_service)
+def task_service(db_session, user_service: UserService) -> TaskService:
+    return TaskService(TaskRepository(db_session), user_service)
 
 
 def test_create_task_requires_existing_user(task_service: TaskService):

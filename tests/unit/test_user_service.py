@@ -2,13 +2,13 @@ import pytest
 
 from app.exceptions import NotFoundError
 from app.models.enums import UserStatus
-from app.repositories.user_repository import InMemoryUserRepository
+from app.repositories.user_repository import UserRepository
 from app.services.user_service import UserService
 
 
 @pytest.fixture
-def service() -> UserService:
-    return UserService(InMemoryUserRepository())
+def service(db_session) -> UserService:
+    return UserService(UserRepository(db_session))
 
 
 def test_create_user_generates_id_and_defaults_to_active(service: UserService):

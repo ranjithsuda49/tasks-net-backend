@@ -1,27 +1,29 @@
 import pytest
 
 from app.exceptions import BadRequestError, ErrorCode, NotFoundError
-from app.repositories.group_repository import InMemoryGroupRepository
-from app.repositories.user_group_repository import InMemoryUserGroupRepository
-from app.repositories.user_repository import InMemoryUserRepository
+from app.repositories.group_repository import GroupRepository
+from app.repositories.user_group_repository import UserGroupRepository
+from app.repositories.user_repository import UserRepository
 from app.services.group_service import GroupService
 from app.services.user_group_service import UserGroupService
 from app.services.user_service import UserService
 
 
 @pytest.fixture
-def user_service() -> UserService:
-    return UserService(InMemoryUserRepository())
+def user_service(db_session) -> UserService:
+    return UserService(UserRepository(db_session))
 
 
 @pytest.fixture
-def group_service(user_service: UserService) -> GroupService:
-    return GroupService(InMemoryGroupRepository(), user_service)
+def group_service(db_session, user_service: UserService) -> GroupService:
+    return GroupService(GroupRepository(db_session), user_service)
 
 
 @pytest.fixture
-def user_group_service(user_service: UserService, group_service: GroupService) -> UserGroupService:
-    return UserGroupService(InMemoryUserGroupRepository(), user_service, group_service)
+def user_group_service(
+    db_session, user_service: UserService, group_service: GroupService
+) -> UserGroupService:
+    return UserGroupService(UserGroupRepository(db_session), user_service, group_service)
 
 
 def _make_user_and_group(user_service: UserService, group_service: GroupService):
