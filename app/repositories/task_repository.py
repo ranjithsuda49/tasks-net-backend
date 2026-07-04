@@ -45,6 +45,10 @@ class TaskRepository(BaseRepository[Task]):
     def list_all(self) -> list[Task]:
         return [self._to_domain(row) for row in self._session.query(TaskRow).all()]
 
+    def list_by_creator(self, created_by: str) -> list[Task]:
+        rows = self._session.query(TaskRow).filter(TaskRow.created_by == created_by).all()
+        return [self._to_domain(row) for row in rows]
+
     @staticmethod
     def _to_domain(row: TaskRow) -> Task:
         return Task(

@@ -114,3 +114,25 @@ def test_duplicate_task_group_pair_raises_integrity_error(db_session):
 
     with pytest.raises(IntegrityError):
         repo.add(_make_relationship())
+
+
+def test_list_by_task_returns_all_relationships_for_task(db_session):
+    _seed(db_session)
+    repo = TaskGroupRepository(db_session)
+    repo.add(_make_relationship())
+
+    results = repo.list_by_task("task-1")
+
+    assert len(results) == 1
+    assert results[0].taskId == "task-1"
+
+
+def test_list_by_assignee_returns_all_relationships_for_assignee(db_session):
+    _seed(db_session)
+    repo = TaskGroupRepository(db_session)
+    repo.add(_make_relationship())
+
+    results = repo.list_by_assignee("user-1")
+
+    assert len(results) == 1
+    assert results[0].assigneeId == "user-1"

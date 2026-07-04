@@ -45,6 +45,14 @@ class TaskGroupRepository(BaseRepository[TaskGroupRelationship]):
         )
         return self._to_domain(row) if row is not None else None
 
+    def list_by_task(self, task_id: str) -> list[TaskGroupRelationship]:
+        rows = self._session.query(GroupTaskRow).filter(GroupTaskRow.task_id == task_id).all()
+        return [self._to_domain(row) for row in rows]
+
+    def list_by_assignee(self, assignee_id: str) -> list[TaskGroupRelationship]:
+        rows = self._session.query(GroupTaskRow).filter(GroupTaskRow.assignee_id == assignee_id).all()
+        return [self._to_domain(row) for row in rows]
+
     @staticmethod
     def _to_domain(row: GroupTaskRow) -> TaskGroupRelationship:
         return TaskGroupRelationship(

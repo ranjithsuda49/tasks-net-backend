@@ -71,3 +71,15 @@ def test_list_all_returns_every_task(db_session):
     all_tasks = repo.list_all()
 
     assert {t.taskId for t in all_tasks} == {"task-1", "task-2"}
+
+
+def test_list_by_creator_filters_correctly(db_session):
+    _make_user_row(db_session, "user-1")
+    _make_user_row(db_session, "user-2")
+    repo = TaskRepository(db_session)
+    repo.add(_make_task("task-1", "user-1"))
+    repo.add(_make_task("task-2", "user-2"))
+
+    results = repo.list_by_creator("user-1")
+
+    assert [t.taskId for t in results] == ["task-1"]
