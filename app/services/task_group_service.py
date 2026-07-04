@@ -25,9 +25,11 @@ class TaskGroupService:
         self._user_group_service = user_group_service
 
     def assign(self, task_id: str, group_id: str, assignee_id: str) -> TaskGroupRelationship:
-        self._task_service.get_task(task_id)
+        task = self._task_service.get_task(task_id)
         self._group_service.get_group(group_id)
         self._user_service.get_user(assignee_id)
+        if assignee_id == task.createdBy:
+            raise BadRequestError(ErrorCode.TASK_CREATOR_CANNOT_BE_ASSIGNEE)
         if not self._user_group_service.is_member(assignee_id, group_id):
             raise BadRequestError(ErrorCode.ASSIGNEE_NOT_GROUP_MEMBER)
 

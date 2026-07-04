@@ -94,6 +94,16 @@ def test_assign_raises_bad_request_if_assignee_not_group_member(
     assert exc_info.value.http_code == 400
 
 
+def test_assign_raises_bad_request_if_assignee_is_task_creator(
+    task_group_service, user_service, group_service, task_service, user_group_service
+):
+    creator, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
+    with pytest.raises(BadRequestError) as exc_info:
+        task_group_service.assign(task.taskId, group.groupId, creator.userId)
+    assert exc_info.value.error_code == ErrorCode.TASK_CREATOR_CANNOT_BE_ASSIGNEE
+    assert exc_info.value.http_code == 400
+
+
 def test_assign_creates_relationship(
     task_group_service, user_service, group_service, task_service, user_group_service
 ):

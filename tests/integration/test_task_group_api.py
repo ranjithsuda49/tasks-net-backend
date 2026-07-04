@@ -98,3 +98,15 @@ def test_unassign_task_with_mismatched_assignee_returns_404(client):
 
     response = client.delete(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee/{other_user_id}")
     assert response.status_code == 404
+
+
+def test_assign_task_to_creator_returns_400(client):
+    creator_id = _create_user(client)
+    group_id = _create_group(client, creator_id)
+    task_id = _create_task(client, creator_id)
+
+    response = client.post(
+        f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": creator_id}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"]["errorCode"] == "ERR_TASKS_005"
