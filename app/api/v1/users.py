@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.auth import verify_firebase_token
 from app.dependencies import get_user_service
 from app.exceptions import NotFoundError
 from app.models.user import User
@@ -44,6 +45,7 @@ def create_user(
     "/{user_id}",
     response_model=UserResponse,
     responses={404: {"description": "User not found"}},
+    dependencies=[Depends(verify_firebase_token)],
 )
 def get_user(user_id: str, service: UserService = Depends(get_user_service)) -> UserResponse:
     try:
@@ -57,6 +59,7 @@ def get_user(user_id: str, service: UserService = Depends(get_user_service)) -> 
     "/{user_id}",
     response_model=UserResponse,
     responses={404: {"description": "User not found"}},
+    dependencies=[Depends(verify_firebase_token)],
 )
 def update_user(
     user_id: str, payload: UserUpdateRequest, service: UserService = Depends(get_user_service)
@@ -78,6 +81,7 @@ def update_user(
     "/{user_id}/status",
     response_model=UserResponse,
     responses={404: {"description": "User not found"}},
+    dependencies=[Depends(verify_firebase_token)],
 )
 def update_user_status(
     user_id: str,

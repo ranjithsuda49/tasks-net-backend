@@ -1,12 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.auth import verify_firebase_token
 from app.dependencies import get_task_group_service
 from app.exceptions import BadRequestError, NotFoundError
 from app.schemas.errors import BadRequestResponse, ErrorDetail
 from app.schemas.task_group import TaskGroupAssignRequest, TaskGroupResponse
 from app.services.task_group_service import TaskGroupService
 
-router = APIRouter(prefix="/api/v1/groups/{group_id}/tasks/{task_id}/assignee", tags=["task-group"])
+router = APIRouter(
+    prefix="/api/v1/groups/{group_id}/tasks/{task_id}/assignee",
+    tags=["task-group"],
+    dependencies=[Depends(verify_firebase_token)],
+)
 
 
 @router.post(

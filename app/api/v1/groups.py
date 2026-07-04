@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.auth import verify_firebase_token
 from app.dependencies import get_group_service
 from app.exceptions import NotFoundError
 from app.models.group import Group
@@ -11,7 +12,9 @@ from app.schemas.group import (
 )
 from app.services.group_service import GroupService
 
-router = APIRouter(prefix="/api/v1", tags=["groups"])
+router = APIRouter(
+    prefix="/api/v1", tags=["groups"], dependencies=[Depends(verify_firebase_token)]
+)
 
 
 def _to_response(group: Group) -> GroupResponse:

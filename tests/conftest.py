@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
+from app.auth import verify_firebase_token
 from app.db import orm_models  # noqa: F401
 from app.db.base import Base
 from app.dependencies import (
@@ -81,6 +82,36 @@ def client(db_session):
     app.dependency_overrides[get_user_group_service] = lambda: user_group_service
     app.dependency_overrides[get_task_service] = lambda: task_service
     app.dependency_overrides[get_task_group_service] = lambda: task_group_service
+    app.dependency_overrides[verify_firebase_token] = lambda: "test-firebase-uid"
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def unauthenticated_client(db_session):
+    user_repo = UserRepository(db_session)
+    group_repo = GroupRepository(db_session)
+    user_group_repo = UserGroupRepository(db_session)
+    task_repo = TaskRepository(db_session)
+    task_group_repo = TaskGroupRepository(db_session)
+
+    user_service = UserService(user_repo)
+    group_service = GroupService(group_repo, user_service)
+    user_group_service = UserGroupService(user_group_repo, user_service, group_service)
+    task_service = TaskService(task_repo, user_service)
+    task_group_service = TaskGroupService(
+        task_group_repo, task_service, group_service, user_service, user_group_service
+    )
+
+    app.dependency_overrides[get_user_service] = lambda: user_service
+    app.dependency_overrides[get_group_service] = lambda: group_service
+    app.dependency_overrides[get_user_group_service] = lambda: user_group_service
+    app.dependency_overrides[get_task_service] = lambda: task_service
+    app.dependency_overrides[get_task_group_service] = lambda: task_group_service
+    # deliberately NOT overriding verify_firebase_token
 
     with TestClient(app) as test_client:
         yield test_client

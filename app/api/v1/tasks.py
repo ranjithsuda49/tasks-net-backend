@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.auth import verify_firebase_token
 from app.dependencies import get_task_service
 from app.exceptions import BadRequestError, NotFoundError
 from app.models.task import Task
@@ -13,7 +14,9 @@ from app.schemas.task import (
 )
 from app.services.task_service import TaskService
 
-router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
+router = APIRouter(
+    prefix="/api/v1/tasks", tags=["tasks"], dependencies=[Depends(verify_firebase_token)]
+)
 
 
 def _to_response(task: Task) -> TaskResponse:

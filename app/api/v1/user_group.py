@@ -1,12 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.auth import verify_firebase_token
 from app.dependencies import get_user_group_service
 from app.exceptions import BadRequestError, NotFoundError
 from app.schemas.errors import BadRequestResponse, ErrorDetail
 from app.schemas.user_group import UserGroupAssociateRequest, UserGroupResponse
 from app.services.user_group_service import UserGroupService
 
-router = APIRouter(prefix="/api/v1/groups", tags=["user-group"])
+router = APIRouter(
+    prefix="/api/v1/groups",
+    tags=["user-group"],
+    dependencies=[Depends(verify_firebase_token)],
+)
 
 
 @router.post(
