@@ -1,6 +1,6 @@
 import pytest
 
-from app.exceptions import BadRequestError, ErrorCode, NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, ForbiddenError, NotFoundError
 from app.repositories.group_repository import GroupRepository
 from app.repositories.user_group_repository import UserGroupRepository
 from app.repositories.user_repository import UserRepository
@@ -16,7 +16,7 @@ def user_service(db_session) -> UserService:
 
 @pytest.fixture
 def group_service(db_session, user_service: UserService) -> GroupService:
-    return GroupService(GroupRepository(db_session), user_service)
+    return GroupService(GroupRepository(db_session), user_service, UserGroupRepository(db_session))
 
 
 @pytest.fixture
@@ -109,3 +109,40 @@ def test_disassociate_raises_if_not_associated(user_group_service: UserGroupServ
     user2 = user_service.create_user(first_name="Bob", last_name="Smith")
     with pytest.raises(NotFoundError):
         user_group_service.disassociate(user2.userId, group.groupId)
+
+
+def test_associate_raises_forbidden_if_caller_is_not_creator_or_member(
+    user_group_service: UserGroupService, group_service, user_service
+):
+    _, group = _make_user_and_group(user_service, group_service)
+    member = user_service.create_user(first_name="Bob", last_name="Smith")
+    with pytest.raises(ForbiddenError):
+        user_group_service.associate(member.userId, group.groupId, "Father", current_user_id="outsider")
+
+
+def test_list_by_group_raises_forbidden_if_caller_is_not_creator_or_member(
+    user_group_service: UserGroupService, group_service, user_service
+):
+    _, group = _make_user_and_group(user_service, group_service)
+    with pytest.raises(ForbiddenError):
+        user_group_service.list_by_group(group.groupId, current_user_id="outsider")
+
+
+def test_disassociate_raises_forbidden_if_caller_is_neither_member_nor_creator(
+    user_group_service: UserGroupService, group_service, user_service
+):
+    creator, group = _make_user_and_group(user_service, group_service)
+    member = user_service.create_user(first_name="Bob", last_name="Smith")
+    user_group_service.associate(member.userId, group.groupId, "Father")
+    with pytest.raises(ForbiddenError):
+        user_group_service.disassociate(member.userId, group.groupId, current_user_id="outsider")
+
+
+def test_disassociate_succeeds_for_creator_removing_someone_else(
+    user_group_service: UserGroupService, group_service, user_service
+):
+    creator, group = _make_user_and_group(user_service, group_service)
+    member = user_service.create_user(first_name="Bob", last_name="Smith")
+    user_group_service.associate(member.userId, group.groupId, "Father")
+    user_group_service.disassociate(member.userId, group.groupId, current_user_id=creator.userId)
+    assert user_group_service.list_by_group(group.groupId) == []
