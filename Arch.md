@@ -92,6 +92,7 @@ model to `UserResponse` schema → FastAPI serializes to JSON.
 | PATCH | /api/v1/groups/{groupId} | Update name/desc/iconUrl (not category) |
 | PATCH | /api/v1/groups/{groupId}/status | Toggle ACTIVE/IN-ACTIVE |
 | POST | /api/v1/groups/{groupId}/members | Associate a user to a group |
+| GET | /api/v1/groups/{groupId}/members | Fetch a group's members |
 | DELETE | /api/v1/groups/{groupId}/members/{userId} | De-associate a user from a group |
 | POST | /api/v1/tasks | Create a task |
 | GET | /api/v1/tasks/{taskId} | Fetch a task |
