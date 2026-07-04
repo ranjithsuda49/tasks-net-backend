@@ -17,7 +17,7 @@ def _create_task(client, creator_id):
     ).json()["taskId"]
 
 
-def test_full_cross_entity_lifecycle(client):
+def test_full_cross_entity_lifecycle(client, authenticate_as):
     # 1. Create the owner user.
     owner_id = _create_user(client, first_name="Ada", last_name="Lovelace")
 
@@ -26,6 +26,11 @@ def test_full_cross_entity_lifecycle(client):
 
     # 3. Create a group with the owner as creator.
     group_id = _create_group(client, owner_id)
+
+    # Authenticate as the owner for every subsequent ownership-gated call in
+    # this lifecycle (disassociate at the end also allows the creator, so no
+    # further identity switch is needed).
+    authenticate_as(owner_id)
 
     # 4. Associate the member to the group.
     associate_response = client.post(

@@ -11,7 +11,7 @@ def test_create_group_for_unknown_creator_returns_404(client):
     assert response.status_code == 404
 
 
-def test_create_and_fetch_group(client):
+def test_create_and_fetch_group(client, authenticate_as):
     creator_id = _create_user(client)
     create_response = client.post(
         "/api/v1/groups",
@@ -25,18 +25,31 @@ def test_create_and_fetch_group(client):
     assert create_response.status_code == 201
     group_id = create_response.json()["groupId"]
 
+    authenticate_as(creator_id)
     fetch_response = client.get(f"/api/v1/groups/{group_id}")
     assert fetch_response.status_code == 200
     assert fetch_response.json()["groupCreaterId"] == creator_id
 
 
-def test_get_groups_by_creator(client):
+def test_get_group_non_member_non_creator_returns_403(client):
+    creator_id = _create_user(client)
+    group_id = client.post(
+        "/api/v1/groups",
+        json={"groupName": "Smiths", "groupCategory": "Family", "groupCreaterId": creator_id},
+    ).json()["groupId"]
+
+    response = client.get(f"/api/v1/groups/{group_id}")
+    assert response.status_code == 403
+
+
+def test_get_groups_by_creator(client, authenticate_as):
     creator_id = _create_user(client)
     client.post(
         "/api/v1/groups",
         json={"groupName": "Smiths", "groupCategory": "Family", "groupCreaterId": creator_id},
     )
 
+    authenticate_as(creator_id)
     response = client.get(f"/api/v1/users/{creator_id}/groups")
     assert response.status_code == 200
     groups = response.json()
@@ -44,13 +57,21 @@ def test_get_groups_by_creator(client):
     assert groups[0]["groupName"] == "Smiths"
 
 
-def test_update_group_ignores_category_field(client):
+def test_get_groups_by_creator_wrong_caller_returns_403(client):
+    creator_id = _create_user(client)
+
+    response = client.get(f"/api/v1/users/{creator_id}/groups")
+    assert response.status_code == 403
+
+
+def test_update_group_ignores_category_field(client, authenticate_as):
     creator_id = _create_user(client)
     group_id = client.post(
         "/api/v1/groups",
         json={"groupName": "Smiths", "groupCategory": "Family", "groupCreaterId": creator_id},
     ).json()["groupId"]
 
+    authenticate_as(creator_id)
     response = client.patch(f"/api/v1/groups/{group_id}", json={"groupName": "The Smiths"})
     assert response.status_code == 200
     body = response.json()
@@ -58,13 +79,25 @@ def test_update_group_ignores_category_field(client):
     assert body["groupCategory"] == "Family"
 
 
-def test_update_group_status(client):
+def test_update_group_non_creator_returns_403(client):
     creator_id = _create_user(client)
     group_id = client.post(
         "/api/v1/groups",
         json={"groupName": "Smiths", "groupCategory": "Family", "groupCreaterId": creator_id},
     ).json()["groupId"]
 
+    response = client.patch(f"/api/v1/groups/{group_id}", json={"groupName": "The Smiths"})
+    assert response.status_code == 403
+
+
+def test_update_group_status(client, authenticate_as):
+    creator_id = _create_user(client)
+    group_id = client.post(
+        "/api/v1/groups",
+        json={"groupName": "Smiths", "groupCategory": "Family", "groupCreaterId": creator_id},
+    ).json()["groupId"]
+
+    authenticate_as(creator_id)
     response = client.patch(f"/api/v1/groups/{group_id}/status", json={"groupStatus": "IN-ACTIVE"})
     assert response.status_code == 200
     assert response.json()["groupStatus"] == "IN-ACTIVE"
