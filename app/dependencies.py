@@ -50,15 +50,16 @@ def get_task_repository(session: Session = Depends(get_db_session)) -> TaskRepos
     return TaskRepository(session)
 
 
+def get_task_group_repository(session: Session = Depends(get_db_session)) -> TaskGroupRepository:
+    return TaskGroupRepository(session)
+
+
 def get_task_service(
     repository: TaskRepository = Depends(get_task_repository),
     user_service: UserService = Depends(get_user_service),
+    task_group_repository: TaskGroupRepository = Depends(get_task_group_repository),
 ) -> TaskService:
-    return TaskService(repository, user_service)
-
-
-def get_task_group_repository(session: Session = Depends(get_db_session)) -> TaskGroupRepository:
-    return TaskGroupRepository(session)
+    return TaskService(repository, user_service, task_group_repository)
 
 
 def get_task_group_service(

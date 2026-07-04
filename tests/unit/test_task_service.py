@@ -2,11 +2,17 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.exceptions import BadRequestError, ErrorCode, NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, ForbiddenError, NotFoundError
 from app.models.enums import TaskState
+from app.repositories.group_repository import GroupRepository
+from app.repositories.task_group_repository import TaskGroupRepository
 from app.repositories.task_repository import TaskRepository
+from app.repositories.user_group_repository import UserGroupRepository
 from app.repositories.user_repository import UserRepository
+from app.services.group_service import GroupService
+from app.services.task_group_service import TaskGroupService
 from app.services.task_service import TaskService
+from app.services.user_group_service import UserGroupService
 from app.services.user_service import UserService
 
 
@@ -17,7 +23,32 @@ def user_service(db_session) -> UserService:
 
 @pytest.fixture
 def task_service(db_session, user_service: UserService) -> TaskService:
-    return TaskService(TaskRepository(db_session), user_service)
+    return TaskService(TaskRepository(db_session), user_service, TaskGroupRepository(db_session))
+
+
+@pytest.fixture
+def group_service(db_session, user_service: UserService) -> GroupService:
+    return GroupService(GroupRepository(db_session), user_service, UserGroupRepository(db_session))
+
+
+@pytest.fixture
+def user_group_service(
+    db_session, user_service: UserService, group_service: GroupService
+) -> UserGroupService:
+    return UserGroupService(UserGroupRepository(db_session), user_service, group_service)
+
+
+@pytest.fixture
+def task_group_service(
+    db_session,
+    task_service: TaskService,
+    group_service: GroupService,
+    user_service: UserService,
+    user_group_service: UserGroupService,
+) -> TaskGroupService:
+    return TaskGroupService(
+        TaskGroupRepository(db_session), task_service, group_service, user_service, user_group_service
+    )
 
 
 def test_create_task_requires_existing_user(task_service: TaskService):
@@ -120,3 +151,54 @@ def test_update_due_date_clears_existing_due_date(task_service: TaskService, use
 def test_get_task_raises_not_found(task_service: TaskService):
     with pytest.raises(NotFoundError):
         task_service.get_task("unknown-task")
+
+
+def test_get_task_raises_forbidden_if_caller_is_neither_creator_nor_assignee(
+    task_service: TaskService, user_service: UserService
+):
+    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
+    with pytest.raises(ForbiddenError):
+        task_service.get_task(task.taskId, current_user_id="outsider")
+
+
+def test_get_task_succeeds_for_creator(task_service: TaskService, user_service: UserService):
+    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
+    fetched = task_service.get_task(task.taskId, current_user_id=user.userId)
+    assert fetched.taskId == task.taskId
+
+
+def test_update_task_meta_raises_forbidden_if_caller_is_not_creator(
+    task_service: TaskService, user_service: UserService
+):
+    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
+    with pytest.raises(ForbiddenError):
+        task_service.update_task_meta(
+            task.taskId, updated_by=user.userId, task_title="New", current_user_id="outsider"
+        )
+
+
+def test_get_tasks_for_user_returns_created_and_assigned_sorted_by_latest(
+    task_service: TaskService,
+    user_service: UserService,
+    group_service,
+    user_group_service,
+    task_group_service,
+):
+    creator = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    other_owner = user_service.create_user(first_name="Bob", last_name="Smith")
+    task_a = task_service.create_task(task_title="Task A", created_by=creator.userId)
+    task_b = task_service.create_task(task_title="Task B", created_by=other_owner.userId)
+    group = group_service.create_group(
+        group_name="Smiths", group_desc=None, group_category="Family", creater_id=other_owner.userId
+    )
+    user_group_service.associate(creator.userId, group.groupId, "Member")
+    task_group_service.assign(task_b.taskId, group.groupId, creator.userId)
+
+    results = task_service.get_tasks_for_user(creator.userId)
+
+    result_ids = [t.taskId for t in results]
+    assert set(result_ids) == {task_a.taskId, task_b.taskId}
+    assert result_ids[0] == task_b.taskId

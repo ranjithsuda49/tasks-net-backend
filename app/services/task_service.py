@@ -2,17 +2,24 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.exceptions import BadRequestError, ErrorCode, NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, ForbiddenError, NotFoundError
 from app.models.enums import TaskState
 from app.models.task import Task
 from app.repositories.base import BaseRepository
+from app.repositories.task_group_repository import TaskGroupRepository
 from app.services.user_service import UserService
 
 
 class TaskService:
-    def __init__(self, repository: BaseRepository[Task], user_service: UserService):
+    def __init__(
+        self,
+        repository: BaseRepository[Task],
+        user_service: UserService,
+        task_group_repository: TaskGroupRepository,
+    ):
         self._repository = repository
         self._user_service = user_service
+        self._task_group_repository = task_group_repository
 
     def create_task(
         self,
@@ -36,10 +43,15 @@ class TaskService:
         )
         return self._repository.add(task)
 
-    def get_task(self, task_id: str) -> Task:
+    def get_task(self, task_id: str, current_user_id: Optional[str] = None) -> Task:
         task = self._repository.get(task_id)
         if task is None:
             raise NotFoundError(f"Task {task_id} not found")
+        if current_user_id is not None and current_user_id != task.createdBy:
+            assignments = self._task_group_repository.list_by_task(task_id)
+            is_assignee = any(rel.assigneeId == current_user_id for rel in assignments)
+            if not is_assignee:
+                raise ForbiddenError(f"User {current_user_id} is not authorized to access task {task_id}")
         return task
 
     def update_task_meta(
@@ -48,9 +60,12 @@ class TaskService:
         updated_by: str,
         task_title: Optional[str] = None,
         task_desc: Optional[str] = None,
+        current_user_id: Optional[str] = None,
     ) -> Task:
         self._user_service.get_user(updated_by)
         task = self.get_task(task_id)
+        if current_user_id is not None and current_user_id != task.createdBy:
+            raise ForbiddenError(f"User {current_user_id} is not authorized to update task {task_id}")
         updated = task.model_copy(
             update={
                 "taskTitle": task_title if task_title is not None else task.taskTitle,
@@ -61,9 +76,11 @@ class TaskService:
         )
         return self._repository.update(updated)
 
-    def update_task_state(self, task_id: str, updated_by: str, new_state: TaskState) -> Task:
+    def update_task_state(
+        self, task_id: str, updated_by: str, new_state: TaskState, current_user_id: Optional[str] = None
+    ) -> Task:
         self._user_service.get_user(updated_by)
-        task = self.get_task(task_id)
+        task = self.get_task(task_id, current_user_id=current_user_id)
         if task.taskState == new_state:
             raise BadRequestError(ErrorCode.TASK_ALREADY_IN_REQUESTED_STATE)
         updated = task.model_copy(
@@ -75,9 +92,15 @@ class TaskService:
         )
         return self._repository.update(updated)
 
-    def update_due_date(self, task_id: str, updated_by: str, due_date: Optional[datetime]) -> Task:
+    def update_due_date(
+        self,
+        task_id: str,
+        updated_by: str,
+        due_date: Optional[datetime],
+        current_user_id: Optional[str] = None,
+    ) -> Task:
         self._user_service.get_user(updated_by)
-        task = self.get_task(task_id)
+        task = self.get_task(task_id, current_user_id=current_user_id)
         updated = task.model_copy(
             update={
                 "taskDueDate": due_date,
@@ -86,3 +109,18 @@ class TaskService:
             }
         )
         return self._repository.update(updated)
+
+    def get_tasks_for_user(self, current_user_id: str) -> list[Task]:
+        created = self._repository.list_by_creator(current_user_id)
+        seen_ids = {t.taskId for t in created}
+        assigned_tasks = []
+        for rel in self._task_group_repository.list_by_assignee(current_user_id):
+            if rel.taskId in seen_ids:
+                continue
+            task = self._repository.get(rel.taskId)
+            if task is not None:
+                assigned_tasks.append(task)
+                seen_ids.add(rel.taskId)
+        all_tasks = created + assigned_tasks
+        all_tasks.sort(key=lambda t: t.updatedAt or t.createdAt, reverse=True)
+        return all_tasks
