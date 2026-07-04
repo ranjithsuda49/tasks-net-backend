@@ -11,6 +11,16 @@ repositories (no database). See `requirements.md` for the original spec,
 `OpenPoints.md` for known gaps/deferred decisions — check `OpenPoints.md`
 before treating something there as an oversight to fix.
 
+## Development workflow
+
+For any build/feature/bugfix work, prefer the `superpowers` skills as the
+primary workflow: `brainstorming` to scope the change, `writing-plans` for a
+TDD-structured plan, `executing-plans`/`subagent-driven-development` to
+implement it task-by-task, `systematic-debugging` for bugs, and
+`finishing-a-development-branch` to wrap up (verify tests, then
+merge/push/keep/discard). Only fall back to ad-hoc planning/implementation
+if the `superpowers` skills aren't available in the current environment.
+
 ## Commands
 
 Requires Python 3.13 (matches `Dockerfile` and the committed `.venv`).
