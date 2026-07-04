@@ -75,7 +75,7 @@ class TaskService:
         )
         return self._repository.update(updated)
 
-    def update_due_date(self, task_id: str, updated_by: str, due_date: datetime) -> Task:
+    def update_due_date(self, task_id: str, updated_by: str, due_date: Optional[datetime]) -> Task:
         self._user_service.get_user(updated_by)
         task = self.get_task(task_id)
         updated = task.model_copy(

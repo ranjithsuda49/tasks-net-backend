@@ -90,3 +90,21 @@ def test_update_task_due_date(client):
     )
     assert response.status_code == 200
     assert response.json()["taskDueDate"].startswith("2026-08-01")
+
+
+def test_update_task_due_date_to_null_clears_it(client):
+    user_id = _create_user(client)
+    task_id = client.post(
+        "/api/v1/tasks", json={"taskTitle": "Buy milk", "createdBy": user_id}
+    ).json()["taskId"]
+    client.patch(
+        f"/api/v1/tasks/{task_id}/due-date",
+        json={"updatedBy": user_id, "taskDueDate": "2026-08-01T00:00:00Z"},
+    )
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_id}/due-date",
+        json={"updatedBy": user_id, "taskDueDate": None},
+    )
+    assert response.status_code == 200
+    assert response.json()["taskDueDate"] is None

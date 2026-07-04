@@ -26,7 +26,7 @@ class TaskStateUpdateRequest(BaseModel):
 
 class TaskDueDateUpdateRequest(BaseModel):
     updatedBy: str
-    taskDueDate: datetime
+    taskDueDate: Optional[datetime] = None
 
 
 class TaskResponse(BaseModel):

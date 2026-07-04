@@ -93,6 +93,19 @@ def test_update_due_date(task_service: TaskService, user_service: UserService):
     assert updated.updatedAt is not None
 
 
+def test_update_due_date_clears_existing_due_date(task_service: TaskService, user_service: UserService):
+    user = user_service.create_user(first_name="Ada", last_name="Lovelace")
+    task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
+    existing_due_date = datetime.now(timezone.utc) + timedelta(days=3)
+    task_service.update_due_date(task.taskId, updated_by=user.userId, due_date=existing_due_date)
+
+    cleared = task_service.update_due_date(task.taskId, updated_by=user.userId, due_date=None)
+
+    assert cleared.taskDueDate is None
+    assert cleared.updatedBy == user.userId
+    assert cleared.updatedAt is not None
+
+
 def test_get_task_raises_not_found(task_service: TaskService):
     with pytest.raises(NotFoundError):
         task_service.get_task("unknown-task")
