@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.exceptions import NotFoundError
+from app.exceptions import ForbiddenError, NotFoundError
 from app.models.enums import UserStatus
 from app.models.user import Name, User
 from app.repositories.base import BaseRepository
@@ -31,10 +31,12 @@ class UserService:
         )
         return self._repository.add(user)
 
-    def get_user(self, user_id: str) -> User:
+    def get_user(self, user_id: str, current_user_id: Optional[str] = None) -> User:
         user = self._repository.get(user_id)
         if user is None:
             raise NotFoundError(f"User {user_id} not found")
+        if current_user_id is not None and current_user_id != user_id:
+            raise ForbiddenError(f"User {current_user_id} is not authorized to access user {user_id}")
         return user
 
     def update_user(
@@ -44,8 +46,9 @@ class UserService:
         last_name: Optional[str] = None,
         phone_num: Optional[str] = None,
         email_id: Optional[str] = None,
+        current_user_id: Optional[str] = None,
     ) -> User:
-        user = self.get_user(user_id)
+        user = self.get_user(user_id, current_user_id=current_user_id)
         updated = user.model_copy(
             update={
                 "name": Name(
@@ -59,8 +62,8 @@ class UserService:
         )
         return self._repository.update(updated)
 
-    def set_status(self, user_id: str, status: UserStatus) -> User:
-        user = self.get_user(user_id)
+    def set_status(self, user_id: str, status: UserStatus, current_user_id: Optional[str] = None) -> User:
+        user = self.get_user(user_id, current_user_id=current_user_id)
         updated = user.model_copy(
             update={"userStatus": status, "updatedAt": datetime.now(timezone.utc)}
         )

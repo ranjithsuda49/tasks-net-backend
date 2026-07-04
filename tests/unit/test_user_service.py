@@ -1,6 +1,6 @@
 import pytest
 
-from app.exceptions import NotFoundError
+from app.exceptions import ForbiddenError, NotFoundError
 from app.models.enums import UserStatus
 from app.repositories.user_repository import UserRepository
 from app.services.user_service import UserService
@@ -47,3 +47,27 @@ def test_set_status_updates_status(service: UserService):
     created = service.create_user(first_name="Ada", last_name="Lovelace")
     updated = service.set_status(created.userId, UserStatus.IN_ACTIVE)
     assert updated.userStatus == UserStatus.IN_ACTIVE
+
+
+def test_get_user_raises_forbidden_if_caller_is_not_the_user(service: UserService):
+    created = service.create_user(first_name="Ada", last_name="Lovelace")
+    with pytest.raises(ForbiddenError):
+        service.get_user(created.userId, current_user_id="someone-else")
+
+
+def test_get_user_succeeds_if_caller_is_the_user(service: UserService):
+    created = service.create_user(first_name="Ada", last_name="Lovelace")
+    fetched = service.get_user(created.userId, current_user_id=created.userId)
+    assert fetched.userId == created.userId
+
+
+def test_update_user_raises_forbidden_if_caller_is_not_the_user(service: UserService):
+    created = service.create_user(first_name="Ada", last_name="Lovelace")
+    with pytest.raises(ForbiddenError):
+        service.update_user(created.userId, last_name="King", current_user_id="someone-else")
+
+
+def test_set_status_raises_forbidden_if_caller_is_not_the_user(service: UserService):
+    created = service.create_user(first_name="Ada", last_name="Lovelace")
+    with pytest.raises(ForbiddenError):
+        service.set_status(created.userId, UserStatus.IN_ACTIVE, current_user_id="someone-else")
