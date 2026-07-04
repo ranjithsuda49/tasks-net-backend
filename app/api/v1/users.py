@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth import verify_firebase_token
 from app.dependencies import get_user_service
-from app.exceptions import NotFoundError
+from app.exceptions import ForbiddenError, NotFoundError
 from app.models.user import User
 from app.schemas.user import (
     NameSchema,
@@ -44,25 +44,32 @@ def create_user(
 @router.get(
     "/{user_id}",
     response_model=UserResponse,
-    responses={404: {"description": "User not found"}},
-    dependencies=[Depends(verify_firebase_token)],
+    responses={404: {"description": "User not found"}, 403: {"description": "Not authorized"}},
 )
-def get_user(user_id: str, service: UserService = Depends(get_user_service)) -> UserResponse:
+def get_user(
+    user_id: str,
+    current_user_id: str = Depends(verify_firebase_token),
+    service: UserService = Depends(get_user_service),
+) -> UserResponse:
     try:
-        user = service.get_user(user_id)
+        user = service.get_user(user_id, current_user_id=current_user_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     return _to_response(user)
 
 
 @router.patch(
     "/{user_id}",
     response_model=UserResponse,
-    responses={404: {"description": "User not found"}},
-    dependencies=[Depends(verify_firebase_token)],
+    responses={404: {"description": "User not found"}, 403: {"description": "Not authorized"}},
 )
 def update_user(
-    user_id: str, payload: UserUpdateRequest, service: UserService = Depends(get_user_service)
+    user_id: str,
+    payload: UserUpdateRequest,
+    current_user_id: str = Depends(verify_firebase_token),
+    service: UserService = Depends(get_user_service),
 ) -> UserResponse:
     try:
         user = service.update_user(
@@ -71,25 +78,30 @@ def update_user(
             last_name=payload.lastName,
             phone_num=payload.phoneNum,
             email_id=payload.emailId,
+            current_user_id=current_user_id,
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     return _to_response(user)
 
 
 @router.patch(
     "/{user_id}/status",
     response_model=UserResponse,
-    responses={404: {"description": "User not found"}},
-    dependencies=[Depends(verify_firebase_token)],
+    responses={404: {"description": "User not found"}, 403: {"description": "Not authorized"}},
 )
 def update_user_status(
     user_id: str,
     payload: UserStatusUpdateRequest,
+    current_user_id: str = Depends(verify_firebase_token),
     service: UserService = Depends(get_user_service),
 ) -> UserResponse:
     try:
-        user = service.set_status(user_id, payload.userStatus)
+        user = service.set_status(user_id, payload.userStatus, current_user_id=current_user_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     return _to_response(user)
