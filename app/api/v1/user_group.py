@@ -35,6 +35,21 @@ def associate_user(
     return UserGroupResponse(**relationship.model_dump())
 
 
+@router.get(
+    "/{group_id}/members",
+    response_model=list[UserGroupResponse],
+    responses={404: {"description": "Group not found"}},
+)
+def get_group_members(
+    group_id: str, service: UserGroupService = Depends(get_user_group_service)
+) -> list[UserGroupResponse]:
+    try:
+        relationships = service.list_by_group(group_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return [UserGroupResponse(**r.model_dump()) for r in relationships]
+
+
 @router.delete(
     "/{group_id}/members/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,

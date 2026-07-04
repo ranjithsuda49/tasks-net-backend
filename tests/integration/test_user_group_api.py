@@ -66,3 +66,33 @@ def test_disassociate_unknown_association_returns_404(client):
 
     response = client.delete(f"/api/v1/groups/{group_id}/members/{creator_id}")
     assert response.status_code == 404
+
+
+def test_get_group_members_returns_associated_users(client):
+    creator_id = _create_user(client)
+    group_id = _create_group(client, creator_id)
+    client.post(
+        f"/api/v1/groups/{group_id}/members", json={"userId": creator_id, "relationship": "Father"}
+    )
+
+    response = client.get(f"/api/v1/groups/{group_id}/members")
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["userId"] == creator_id
+    assert body[0]["groupId"] == group_id
+    assert body[0]["relationship"] == "Father"
+
+
+def test_get_group_members_empty_list_for_group_with_no_members(client):
+    creator_id = _create_user(client)
+    group_id = _create_group(client, creator_id)
+
+    response = client.get(f"/api/v1/groups/{group_id}/members")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_get_group_members_unknown_group_returns_404(client):
+    response = client.get("/api/v1/groups/unknown-group/members")
+    assert response.status_code == 404

@@ -35,6 +35,7 @@ class UserGroupService:
         self._repository.delete(existing.uuid)
 
     def list_by_group(self, group_id: str) -> list[UserGroupRelationship]:
+        self._group_service.get_group(group_id)
         return self._repository.list_by_group(group_id)
 
     def is_member(self, user_id: str, group_id: str) -> bool:

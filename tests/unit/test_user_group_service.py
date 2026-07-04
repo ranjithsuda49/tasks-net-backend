@@ -71,6 +71,23 @@ def test_disassociate_removes_relationship(user_group_service: UserGroupService,
     assert user_group_service.list_by_group(group.groupId) == []
 
 
+def test_list_by_group_returns_members(user_group_service: UserGroupService, group_service, user_service):
+    user, group = _make_user_and_group(user_service, group_service)
+    user_group_service.associate(user.userId, group.groupId, "Father")
+
+    members = user_group_service.list_by_group(group.groupId)
+
+    assert len(members) == 1
+    assert members[0].userId == user.userId
+    assert members[0].groupId == group.groupId
+    assert members[0].relationship == "Father"
+
+
+def test_list_by_group_raises_if_group_missing(user_group_service: UserGroupService):
+    with pytest.raises(NotFoundError):
+        user_group_service.list_by_group("unknown-group")
+
+
 def test_disassociate_raises_if_not_associated(user_group_service: UserGroupService, group_service, user_service):
     _, group = _make_user_and_group(user_service, group_service)
     user2 = user_service.create_user(first_name="Bob", last_name="Smith")
