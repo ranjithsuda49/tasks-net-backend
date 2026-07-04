@@ -22,6 +22,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 from app.db.base import Base
+from app.db import orm_models  # noqa: F401 — registers all 5 tables on Base.metadata
 
 target_metadata = Base.metadata
 
