@@ -46,11 +46,22 @@ def test_associate_raises_if_group_missing(user_group_service: UserGroupService,
         user_group_service.associate(user.userId, "unknown-group", "Father")
 
 
+def test_associate_raises_bad_request_if_user_is_group_creator(
+    user_group_service: UserGroupService, group_service, user_service
+):
+    creator, group = _make_user_and_group(user_service, group_service)
+    with pytest.raises(BadRequestError) as exc_info:
+        user_group_service.associate(creator.userId, group.groupId, "Father")
+    assert exc_info.value.error_code == ErrorCode.GROUP_CREATOR_CANNOT_BE_MEMBER
+    assert exc_info.value.http_code == 400
+
+
 def test_associate_creates_relationship(user_group_service: UserGroupService, group_service, user_service):
-    user, group = _make_user_and_group(user_service, group_service)
-    relationship = user_group_service.associate(user.userId, group.groupId, "Father")
+    _, group = _make_user_and_group(user_service, group_service)
+    member = user_service.create_user(first_name="Bob", last_name="Smith")
+    relationship = user_group_service.associate(member.userId, group.groupId, "Father")
     assert relationship.uuid
-    assert relationship.userId == user.userId
+    assert relationship.userId == member.userId
     assert relationship.groupId == group.groupId
     assert relationship.relationship == "Father"
 
@@ -58,29 +69,32 @@ def test_associate_creates_relationship(user_group_service: UserGroupService, gr
 def test_associate_raises_bad_request_if_already_associated(
     user_group_service: UserGroupService, group_service, user_service
 ):
-    user, group = _make_user_and_group(user_service, group_service)
-    user_group_service.associate(user.userId, group.groupId, "Father")
+    _, group = _make_user_and_group(user_service, group_service)
+    member = user_service.create_user(first_name="Bob", last_name="Smith")
+    user_group_service.associate(member.userId, group.groupId, "Father")
     with pytest.raises(BadRequestError) as exc_info:
-        user_group_service.associate(user.userId, group.groupId, "Father")
+        user_group_service.associate(member.userId, group.groupId, "Father")
     assert exc_info.value.error_code == ErrorCode.DUPLICATE_GROUP_MEMBERSHIP
     assert exc_info.value.http_code == 400
 
 
 def test_disassociate_removes_relationship(user_group_service: UserGroupService, group_service, user_service):
-    user, group = _make_user_and_group(user_service, group_service)
-    user_group_service.associate(user.userId, group.groupId, "Father")
-    user_group_service.disassociate(user.userId, group.groupId)
+    _, group = _make_user_and_group(user_service, group_service)
+    member = user_service.create_user(first_name="Bob", last_name="Smith")
+    user_group_service.associate(member.userId, group.groupId, "Father")
+    user_group_service.disassociate(member.userId, group.groupId)
     assert user_group_service.list_by_group(group.groupId) == []
 
 
 def test_list_by_group_returns_members(user_group_service: UserGroupService, group_service, user_service):
-    user, group = _make_user_and_group(user_service, group_service)
-    user_group_service.associate(user.userId, group.groupId, "Father")
+    _, group = _make_user_and_group(user_service, group_service)
+    member = user_service.create_user(first_name="Bob", last_name="Smith")
+    user_group_service.associate(member.userId, group.groupId, "Father")
 
     members = user_group_service.list_by_group(group.groupId)
 
     assert len(members) == 1
-    assert members[0].userId == user.userId
+    assert members[0].userId == member.userId
     assert members[0].groupId == group.groupId
     assert members[0].relationship == "Father"
 

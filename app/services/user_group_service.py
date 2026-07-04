@@ -20,7 +20,9 @@ class UserGroupService:
 
     def associate(self, user_id: str, group_id: str, relationship: str) -> UserGroupRelationship:
         self._user_service.get_user(user_id)
-        self._group_service.get_group(group_id)
+        group = self._group_service.get_group(group_id)
+        if user_id == group.groupCreaterId:
+            raise BadRequestError(ErrorCode.GROUP_CREATOR_CANNOT_BE_MEMBER)
         if self.is_member(user_id, group_id):
             raise BadRequestError(ErrorCode.DUPLICATE_GROUP_MEMBERSHIP)
         entity = UserGroupRelationship(

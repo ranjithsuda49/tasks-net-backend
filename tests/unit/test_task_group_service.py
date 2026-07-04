@@ -55,7 +55,6 @@ def _setup(user_service, group_service, task_service, user_group_service):
         group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
     )
     task = task_service.create_task(task_title="Buy milk", created_by=creator.userId)
-    user_group_service.associate(creator.userId, group.groupId, "Creator")
     user_group_service.associate(assignee.userId, group.groupId, "Member")
     return creator, assignee, group, task
 
@@ -110,10 +109,12 @@ def test_assign_twice_updates_existing_relationship(
     task_group_service, user_service, group_service, task_service, user_group_service
 ):
     creator, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
+    other_member = user_service.create_user(first_name="Cara", last_name="Jones")
+    user_group_service.associate(other_member.userId, group.groupId, "Member")
     first = task_group_service.assign(task.taskId, group.groupId, assignee.userId)
-    second = task_group_service.assign(task.taskId, group.groupId, creator.userId)
+    second = task_group_service.assign(task.taskId, group.groupId, other_member.userId)
     assert first.uuid == second.uuid
-    assert second.assigneeId == creator.userId
+    assert second.assigneeId == other_member.userId
 
 
 def test_unassign_clears_assignee(
@@ -137,6 +138,6 @@ def test_unassign_raises_if_assignee_does_not_match_current_assignment(
     task_group_service, user_service, group_service, task_service, user_group_service
 ):
     creator, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
-    task_group_service.assign(task.taskId, group.groupId, creator.userId)
+    task_group_service.assign(task.taskId, group.groupId, assignee.userId)
     with pytest.raises(NotFoundError):
-        task_group_service.unassign(task.taskId, group.groupId, assignee.userId)
+        task_group_service.unassign(task.taskId, group.groupId, creator.userId)

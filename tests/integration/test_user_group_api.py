@@ -13,27 +13,29 @@ def _create_group(client, creator_id):
 
 def test_associate_user_to_group(client):
     creator_id = _create_user(client)
+    member_id = _create_user(client, first_name="Bob", last_name="Smith")
     group_id = _create_group(client, creator_id)
 
     response = client.post(
-        f"/api/v1/groups/{group_id}/members", json={"userId": creator_id, "relationship": "Father"}
+        f"/api/v1/groups/{group_id}/members", json={"userId": member_id, "relationship": "Father"}
     )
     assert response.status_code == 201
     body = response.json()
-    assert body["userId"] == creator_id
+    assert body["userId"] == member_id
     assert body["groupId"] == group_id
     assert body["relationship"] == "Father"
 
 
 def test_associate_duplicate_returns_400(client):
     creator_id = _create_user(client)
+    member_id = _create_user(client, first_name="Bob", last_name="Smith")
     group_id = _create_group(client, creator_id)
     client.post(
-        f"/api/v1/groups/{group_id}/members", json={"userId": creator_id, "relationship": "Father"}
+        f"/api/v1/groups/{group_id}/members", json={"userId": member_id, "relationship": "Father"}
     )
 
     response = client.post(
-        f"/api/v1/groups/{group_id}/members", json={"userId": creator_id, "relationship": "Father"}
+        f"/api/v1/groups/{group_id}/members", json={"userId": member_id, "relationship": "Father"}
     )
     assert response.status_code == 400
     assert response.json()["detail"]["errorCode"] == "ERR_TASKS_003"
@@ -49,14 +51,26 @@ def test_associate_unknown_user_returns_404(client):
     assert response.status_code == 404
 
 
-def test_disassociate_user_from_group(client):
+def test_associate_group_creator_returns_400(client):
     creator_id = _create_user(client)
     group_id = _create_group(client, creator_id)
-    client.post(
+
+    response = client.post(
         f"/api/v1/groups/{group_id}/members", json={"userId": creator_id, "relationship": "Father"}
     )
+    assert response.status_code == 400
+    assert response.json()["detail"]["errorCode"] == "ERR_TASKS_006"
 
-    response = client.delete(f"/api/v1/groups/{group_id}/members/{creator_id}")
+
+def test_disassociate_user_from_group(client):
+    creator_id = _create_user(client)
+    member_id = _create_user(client, first_name="Bob", last_name="Smith")
+    group_id = _create_group(client, creator_id)
+    client.post(
+        f"/api/v1/groups/{group_id}/members", json={"userId": member_id, "relationship": "Father"}
+    )
+
+    response = client.delete(f"/api/v1/groups/{group_id}/members/{member_id}")
     assert response.status_code == 204
 
 
@@ -70,16 +84,17 @@ def test_disassociate_unknown_association_returns_404(client):
 
 def test_get_group_members_returns_associated_users(client):
     creator_id = _create_user(client)
+    member_id = _create_user(client, first_name="Bob", last_name="Smith")
     group_id = _create_group(client, creator_id)
     client.post(
-        f"/api/v1/groups/{group_id}/members", json={"userId": creator_id, "relationship": "Father"}
+        f"/api/v1/groups/{group_id}/members", json={"userId": member_id, "relationship": "Father"}
     )
 
     response = client.get(f"/api/v1/groups/{group_id}/members")
     assert response.status_code == 200
     body = response.json()
     assert len(body) == 1
-    assert body[0]["userId"] == creator_id
+    assert body[0]["userId"] == member_id
     assert body[0]["groupId"] == group_id
     assert body[0]["relationship"] == "Father"
 
