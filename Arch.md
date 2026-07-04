@@ -61,9 +61,13 @@ group referencing it) still share consistent state within a single test.
 ## Entity relationships
 
 - `User` 1—0..N `UserGroupRelationship` N—1 `Group` (many-to-many join with
-  a `relationship` label, e.g. "Father").
+  a `relationship` label, e.g. "Father"). Constraint: a group's creator
+  (`Group.groupCreaterId`) can never be one of its own members — enforced
+  in `UserGroupService.associate`.
 - `Task` 0..1—0..N `TaskGroupRelationship` N—0..1 `Group`, with an optional
-  `assigneeId` (a `User`) on each join row.
+  `assigneeId` (a `User`) on each join row. Constraint: a task's creator
+  (`Task.createdBy`) can never be its own assignee — enforced in
+  `TaskGroupService.assign`.
 
 ## Request flow example (create user)
 

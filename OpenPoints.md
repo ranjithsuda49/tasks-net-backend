@@ -30,8 +30,15 @@ code -> message mapping:
 | Code | Meaning |
 |---|---|
 | `ERR_TASKS_001` | Assignee is not a member of the target group |
-| `ERR_TASKS_002` | Task is already COMPLETED and cannot be marked COMPLETED again |
+| `ERR_TASKS_002` | Task is already in the requested state (any no-op state transition, not just COMPLETED->COMPLETED) |
 | `ERR_TASKS_003` | User is already associated with this group |
+| `ERR_TASKS_005` | Task creator cannot be assigned to their own task |
+| `ERR_TASKS_006` | Group creator cannot be a member of their own group |
+
+Note: `ERR_TASKS_004` is intentionally unused. The original ask called for
+a separate "task already in requested state" code, but that was folded
+into a broadened `ERR_TASKS_002` instead of introduced as a new,
+overlapping code.
 
 ## API surface gaps
 - No delete endpoints for `User` or `Group` (spec only asks for status
@@ -65,8 +72,8 @@ code -> message mapping:
 
 ## Testing
 - Unit and integration tests cover the happy paths and documented error
-  paths (404s) for each entity. Concurrency/race-condition testing on the
-  in-memory stores is not covered.
+  paths (404s/400s) for each entity. Concurrency/race-condition testing
+  against Postgres under concurrent writes is not covered.
 
 ## Deployment
 - Docker is not installed on this development machine (`docker --version`
