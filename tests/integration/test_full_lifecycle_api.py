@@ -56,23 +56,23 @@ def test_full_cross_entity_lifecycle(client, authenticate_as):
 
     # 7. Move the task through states: TODO -> IN-PROGRESS -> COMPLETED.
     in_progress_response = client.patch(
-        f"/api/v1/tasks/{task_id}/state", json={"updatedBy": owner_id, "taskState": "IN-PROGRESS"}
+        f"/api/v1/tasks/{task_id}/state", json={"taskState": "IN-PROGRESS"}
     )
     assert in_progress_response.status_code == 200
     assert in_progress_response.json()["taskState"] == "IN-PROGRESS"
 
     completed_response = client.patch(
-        f"/api/v1/tasks/{task_id}/state", json={"updatedBy": owner_id, "taskState": "COMPLETED"}
+        f"/api/v1/tasks/{task_id}/state", json={"taskState": "COMPLETED"}
     )
     assert completed_response.status_code == 200
     assert completed_response.json()["taskState"] == "COMPLETED"
 
-    # 8. Unassign the task.
-    unassign_response = client.delete(
-        f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee/{member_id}"
+    # 8. Reassign the task back to the owner.
+    reassign_response = client.patch(
+        f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": owner_id}
     )
-    assert unassign_response.status_code == 200
-    assert unassign_response.json()["assigneeId"] is None
+    assert reassign_response.status_code == 200
+    assert reassign_response.json()["assigneeId"] == owner_id
 
     # 9. Disassociate the member from the group.
     disassociate_response = client.delete(f"/api/v1/groups/{group_id}/members/{member_id}")
