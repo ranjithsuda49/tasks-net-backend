@@ -24,8 +24,10 @@ def group_service(db_session, user_service: UserService) -> GroupService:
 
 
 @pytest.fixture
-def task_service(db_session, user_service: UserService) -> TaskService:
-    return TaskService(TaskRepository(db_session), user_service, TaskGroupRepository(db_session))
+def task_service(db_session, user_service: UserService, group_service: GroupService) -> TaskService:
+    return TaskService(
+        TaskRepository(db_session), user_service, TaskGroupRepository(db_session), group_service
+    )
 
 
 @pytest.fixture
@@ -94,14 +96,12 @@ def test_assign_raises_bad_request_if_assignee_not_group_member(
     assert exc_info.value.http_code == 400
 
 
-def test_assign_raises_bad_request_if_assignee_is_task_creator(
+def test_assign_to_creator_now_succeeds(
     task_group_service, user_service, group_service, task_service, user_group_service
 ):
     creator, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
-    with pytest.raises(BadRequestError) as exc_info:
-        task_group_service.assign(task.taskId, group.groupId, creator.userId)
-    assert exc_info.value.error_code == ErrorCode.TASK_CREATOR_CANNOT_BE_ASSIGNEE
-    assert exc_info.value.http_code == 400
+    relationship = task_group_service.assign(task.taskId, group.groupId, creator.userId)
+    assert relationship.assigneeId == creator.userId
 
 
 def test_assign_creates_relationship(

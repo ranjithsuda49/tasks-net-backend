@@ -33,9 +33,11 @@ class TaskGroupService:
         self._user_service.get_user(assignee_id)
         if current_user_id is not None and current_user_id != task.createdBy:
             raise ForbiddenError(f"User {current_user_id} is not authorized to assign task {task_id}")
-        if assignee_id == task.createdBy:
-            raise BadRequestError(ErrorCode.TASK_CREATOR_CANNOT_BE_ASSIGNEE)
-        if not self._user_group_service.is_member(assignee_id, group_id):
+        # A group's creator can never be a UserGroupRelationship member row
+        # (GROUP_CREATOR_CANNOT_BE_MEMBER), so the membership check is
+        # skipped for the task's own creator — otherwise retiring
+        # ERR_TASKS_005 would be meaningless for this endpoint.
+        if assignee_id != task.createdBy and not self._user_group_service.is_member(assignee_id, group_id):
             raise BadRequestError(ErrorCode.ASSIGNEE_NOT_GROUP_MEMBER)
 
         existing = self._repository.find_by_task_and_group(task_id, group_id)
