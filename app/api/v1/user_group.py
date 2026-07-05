@@ -64,7 +64,11 @@ def get_group_members(
 @router.delete(
     "/{group_id}/members/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses={404: {"description": "User is not associated with this group"}, 403: {"description": "Not authorized"}},
+    responses={
+        404: {"description": "User is not associated with this group"},
+        400: {"model": BadRequestResponse, "description": "Group creator cannot be de-associated"},
+        403: {"description": "Not authorized"},
+    },
 )
 def disassociate_user(
     group_id: str,
@@ -76,5 +80,10 @@ def disassociate_user(
         service.disassociate(user_id, group_id, current_user_id=current_user_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except BadRequestError as exc:
+        raise HTTPException(
+            status_code=exc.http_code,
+            detail=ErrorDetail(errorCode=exc.error_code, message=exc.message).model_dump(),
+        ) from exc
     except ForbiddenError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
