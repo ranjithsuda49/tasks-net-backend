@@ -79,7 +79,32 @@ def test_assign_task_to_non_member_returns_400(client, authenticate_as):
     assert body["detail"]["errorCode"] == "ERR_TASKS_001"
 
 
-def test_unassign_task(client, authenticate_as):
+def test_delete_assignee_route_removed_returns_404(client, authenticate_as):
+    creator_id = _create_user(client, authenticate_as, "creator")
+    group_id = _create_group(client, authenticate_as, creator_id)
+    task_id = _create_task(client, authenticate_as, creator_id)
+    response = client.delete(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee/{creator_id}")
+    assert response.status_code == 404
+
+
+def test_reassign_task_to_new_member_succeeds(client, authenticate_as):
+    creator_id = _create_user(client, authenticate_as, "creator")
+    member_id = _create_user(client, authenticate_as, "member", first_name="Bob", last_name="Smith")
+    other_member_id = _create_user(client, authenticate_as, "other", first_name="Cara", last_name="Jones")
+    group_id = _create_group(client, authenticate_as, creator_id)
+    task_id = _create_task(client, authenticate_as, creator_id)
+    _associate_user(client, group_id, member_id)
+    _associate_user(client, group_id, other_member_id)
+    client.post(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": member_id})
+
+    response = client.patch(
+        f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": other_member_id}
+    )
+    assert response.status_code == 200
+    assert response.json()["assigneeId"] == other_member_id
+
+
+def test_reassign_task_same_assignee_returns_400_err_007(client, authenticate_as):
     creator_id = _create_user(client, authenticate_as, "creator")
     member_id = _create_user(client, authenticate_as, "member", first_name="Bob", last_name="Smith")
     group_id = _create_group(client, authenticate_as, creator_id)
@@ -87,12 +112,30 @@ def test_unassign_task(client, authenticate_as):
     _associate_user(client, group_id, member_id)
     client.post(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": member_id})
 
-    response = client.delete(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee/{member_id}")
-    assert response.status_code == 200
-    assert response.json()["assigneeId"] is None
+    response = client.patch(
+        f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": member_id}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"]["errorCode"] == "ERR_TASKS_007"
 
 
-def test_unassign_task_wrong_caller_returns_403(client, authenticate_as):
+def test_reassign_task_non_member_returns_400_err_008(client, authenticate_as):
+    creator_id = _create_user(client, authenticate_as, "creator")
+    member_id = _create_user(client, authenticate_as, "member", first_name="Bob", last_name="Smith")
+    outsider_id = _create_user(client, authenticate_as, "outsider", first_name="Cara", last_name="Jones")
+    group_id = _create_group(client, authenticate_as, creator_id)
+    task_id = _create_task(client, authenticate_as, creator_id)
+    _associate_user(client, group_id, member_id)
+    client.post(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": member_id})
+
+    response = client.patch(
+        f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": outsider_id}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"]["errorCode"] == "ERR_TASKS_008"
+
+
+def test_reassign_task_any_member_can_call_not_just_creator(client, authenticate_as):
     creator_id = _create_user(client, authenticate_as, "creator")
     member_id = _create_user(client, authenticate_as, "member", first_name="Bob", last_name="Smith")
     group_id = _create_group(client, authenticate_as, creator_id)
@@ -101,29 +144,65 @@ def test_unassign_task_wrong_caller_returns_403(client, authenticate_as):
     client.post(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": member_id})
 
     authenticate_as(member_id)
-    response = client.delete(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee/{member_id}")
-    assert response.status_code == 403
+    response = client.patch(
+        f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": creator_id}
+    )
+    assert response.status_code == 200
+    assert response.json()["assigneeId"] == creator_id
 
 
-def test_unassign_task_without_prior_assignment_returns_404(client, authenticate_as):
-    creator_id = _create_user(client, authenticate_as, "creator")
-    group_id = _create_group(client, authenticate_as, creator_id)
-    task_id = _create_task(client, authenticate_as, creator_id)
-
-    response = client.delete(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee/{creator_id}")
-    assert response.status_code == 404
-
-
-def test_unassign_task_with_mismatched_assignee_returns_404(client, authenticate_as):
+def test_reassign_task_non_member_caller_returns_403(client, authenticate_as):
     creator_id = _create_user(client, authenticate_as, "creator")
     member_id = _create_user(client, authenticate_as, "member", first_name="Bob", last_name="Smith")
-    other_user_id = _create_user(client, authenticate_as, "other", first_name="Cara", last_name="Jones")
     group_id = _create_group(client, authenticate_as, creator_id)
     task_id = _create_task(client, authenticate_as, creator_id)
     _associate_user(client, group_id, member_id)
     client.post(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": member_id})
 
-    response = client.delete(f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee/{other_user_id}")
+    authenticate_as("outsider")
+    response = client.patch(
+        f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": creator_id}
+    )
+    assert response.status_code == 403
+
+
+def test_list_group_tasks_as_creator(client, authenticate_as):
+    creator_id = _create_user(client, authenticate_as, "creator")
+    group_id = _create_group(client, authenticate_as, creator_id)
+    task_id = client.post(
+        "/api/v1/tasks", json={"taskTitle": "Buy milk", "groupId": group_id}
+    ).json()["taskId"]
+
+    response = client.get(f"/api/v1/groups/{group_id}/tasks")
+    assert response.status_code == 200
+    assert [t["taskId"] for t in response.json()] == [task_id]
+
+
+def test_list_group_tasks_as_member(client, authenticate_as):
+    creator_id = _create_user(client, authenticate_as, "creator")
+    member_id = _create_user(client, authenticate_as, "member", first_name="Bob", last_name="Smith")
+    group_id = _create_group(client, authenticate_as, creator_id)
+    _associate_user(client, group_id, member_id)
+    client.post("/api/v1/tasks", json={"taskTitle": "Buy milk", "groupId": group_id})
+
+    authenticate_as(member_id)
+    response = client.get(f"/api/v1/groups/{group_id}/tasks")
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+
+def test_list_group_tasks_non_member_returns_403(client, authenticate_as):
+    creator_id = _create_user(client, authenticate_as, "creator")
+    group_id = _create_group(client, authenticate_as, creator_id)
+
+    authenticate_as("outsider")
+    response = client.get(f"/api/v1/groups/{group_id}/tasks")
+    assert response.status_code == 403
+
+
+def test_list_group_tasks_unknown_group_returns_404(client, authenticate_as):
+    _create_user(client, authenticate_as, "creator")
+    response = client.get("/api/v1/groups/unknown-group/tasks")
     assert response.status_code == 404
 
 
