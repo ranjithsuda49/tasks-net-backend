@@ -64,7 +64,7 @@ def test_associate_unknown_user_returns_404(client, authenticate_as):
     assert response.status_code == 404
 
 
-def test_associate_group_creator_returns_400(client, authenticate_as):
+def test_associate_group_creator_again_returns_400_duplicate(client, authenticate_as):
     creator_id = _create_user(client, authenticate_as, "creator")
     group_id = _create_group(client, authenticate_as, creator_id)
 
@@ -72,7 +72,7 @@ def test_associate_group_creator_returns_400(client, authenticate_as):
         f"/api/v1/groups/{group_id}/members", json={"userId": creator_id, "relationship": "Father"}
     )
     assert response.status_code == 400
-    assert response.json()["detail"]["errorCode"] == "ERR_TASKS_006"
+    assert response.json()["detail"]["errorCode"] == "ERR_TASKS_003"
 
 
 def test_disassociate_user_from_group(client, authenticate_as):
@@ -87,7 +87,7 @@ def test_disassociate_user_from_group(client, authenticate_as):
     assert response.status_code == 204
 
 
-def test_disassociate_self_succeeds(client, authenticate_as):
+def test_disassociate_self_by_non_creator_returns_403(client, authenticate_as):
     creator_id = _create_user(client, authenticate_as, "creator")
     member_id = _create_user(client, authenticate_as, "member", first_name="Bob", last_name="Smith")
     group_id = _create_group(client, authenticate_as, creator_id)
@@ -97,7 +97,7 @@ def test_disassociate_self_succeeds(client, authenticate_as):
 
     authenticate_as(member_id)
     response = client.delete(f"/api/v1/groups/{group_id}/members/{member_id}")
-    assert response.status_code == 204
+    assert response.status_code == 403
 
 
 def test_disassociate_wrong_user_returns_403(client, authenticate_as):
@@ -114,12 +114,22 @@ def test_disassociate_wrong_user_returns_403(client, authenticate_as):
     assert response.status_code == 403
 
 
-def test_disassociate_unknown_association_returns_404(client, authenticate_as):
+def test_disassociate_unassociated_user_returns_404(client, authenticate_as):
+    creator_id = _create_user(client, authenticate_as, "creator")
+    member_id = _create_user(client, authenticate_as, "member", first_name="Bob", last_name="Smith")
+    group_id = _create_group(client, authenticate_as, creator_id)
+
+    response = client.delete(f"/api/v1/groups/{group_id}/members/{member_id}")
+    assert response.status_code == 404
+
+
+def test_disassociate_creator_returns_400(client, authenticate_as):
     creator_id = _create_user(client, authenticate_as, "creator")
     group_id = _create_group(client, authenticate_as, creator_id)
 
     response = client.delete(f"/api/v1/groups/{group_id}/members/{creator_id}")
-    assert response.status_code == 404
+    assert response.status_code == 400
+    assert response.json()["detail"]["errorCode"] == "ERR_TASKS_009"
 
 
 def test_get_group_members_returns_associated_users(client, authenticate_as):
@@ -133,10 +143,10 @@ def test_get_group_members_returns_associated_users(client, authenticate_as):
     response = client.get(f"/api/v1/groups/{group_id}/members")
     assert response.status_code == 200
     body = response.json()
-    assert len(body) == 1
-    assert body[0]["userId"] == member_id
-    assert body[0]["groupId"] == group_id
-    assert body[0]["relationship"] == "Father"
+    assert len(body) == 2
+    by_user = {m["userId"]: m for m in body}
+    assert by_user[member_id]["relationship"] == "Father"
+    assert by_user[creator_id]["relationship"] == "SELF"
 
 
 def test_get_group_members_non_member_returns_403(client, authenticate_as):
@@ -148,13 +158,16 @@ def test_get_group_members_non_member_returns_403(client, authenticate_as):
     assert response.status_code == 403
 
 
-def test_get_group_members_empty_list_for_group_with_no_members(client, authenticate_as):
+def test_get_group_members_returns_only_creator_for_group_with_no_other_members(client, authenticate_as):
     creator_id = _create_user(client, authenticate_as, "creator")
     group_id = _create_group(client, authenticate_as, creator_id)
 
     response = client.get(f"/api/v1/groups/{group_id}/members")
     assert response.status_code == 200
-    assert response.json() == []
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["userId"] == creator_id
+    assert body[0]["relationship"] == "SELF"
 
 
 def test_get_group_members_unknown_group_returns_404(client):
