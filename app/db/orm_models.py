@@ -73,6 +73,7 @@ class TaskRow(Base):
     created_by = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     updated_at = Column(DateTime(timezone=True), nullable=True)
     updated_by = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
+    group_id = Column(String(36), ForeignKey("groups.id"), nullable=True, index=True)
 
 
 class GroupTaskRow(Base):

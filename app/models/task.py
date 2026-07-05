@@ -16,3 +16,4 @@ class Task(BaseModel):
     createdBy: str
     updatedAt: Optional[datetime] = None
     updatedBy: Optional[str] = None
+    groupId: Optional[str] = None
