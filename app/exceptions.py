@@ -20,16 +20,18 @@ class ErrorCode:
     ASSIGNEE_NOT_GROUP_MEMBER = "ERR_TASKS_001"
     TASK_ALREADY_IN_REQUESTED_STATE = "ERR_TASKS_002"
     DUPLICATE_GROUP_MEMBERSHIP = "ERR_TASKS_003"
-    TASK_CREATOR_CANNOT_BE_ASSIGNEE = "ERR_TASKS_005"
     GROUP_CREATOR_CANNOT_BE_MEMBER = "ERR_TASKS_006"
+    REASSIGN_ASSIGNEE_UNCHANGED = "ERR_TASKS_007"
+    REASSIGN_ASSIGNEE_NOT_GROUP_MEMBER = "ERR_TASKS_008"
 
 
 ERROR_CODE_MESSAGES: dict[str, str] = {
     ErrorCode.ASSIGNEE_NOT_GROUP_MEMBER: "Assignee is not a member of the target group",
     ErrorCode.TASK_ALREADY_IN_REQUESTED_STATE: "Task is already in the requested state",
     ErrorCode.DUPLICATE_GROUP_MEMBERSHIP: "User is already associated with this group",
-    ErrorCode.TASK_CREATOR_CANNOT_BE_ASSIGNEE: "Task creator cannot be assigned to their own task",
     ErrorCode.GROUP_CREATOR_CANNOT_BE_MEMBER: "Group creator cannot be a member of their own group",
+    ErrorCode.REASSIGN_ASSIGNEE_UNCHANGED: "Requested Task assignee is same as current assignee",
+    ErrorCode.REASSIGN_ASSIGNEE_NOT_GROUP_MEMBER: "Requested Assignee is not part of the Group",
 }
 
 
