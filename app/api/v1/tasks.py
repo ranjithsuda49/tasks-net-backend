@@ -25,7 +25,10 @@ def _to_response(task: Task) -> TaskResponse:
     "",
     response_model=TaskResponse,
     status_code=status.HTTP_201_CREATED,
-    responses={404: {"description": "Task creator (user) not found"}},
+    responses={
+        404: {"description": "Task creator (user) or groupId not found"},
+        403: {"description": "Not authorized to create a task in that group"},
+    },
 )
 def create_task(
     payload: TaskCreateRequest,
@@ -38,9 +41,12 @@ def create_task(
             created_by=current_user_id,
             task_desc=payload.taskDesc,
             task_due_date=payload.taskDueDate,
+            group_id=payload.groupId,
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     return _to_response(task)
 
 
@@ -89,10 +95,9 @@ def update_task_meta(
     try:
         task = service.update_task_meta(
             task_id,
-            updated_by=payload.updatedBy,
+            current_user_id=current_user_id,
             task_title=payload.taskTitle,
             task_desc=payload.taskDesc,
-            current_user_id=current_user_id,
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -122,9 +127,8 @@ def update_task_state(
     try:
         task = service.update_task_state(
             task_id,
-            updated_by=payload.updatedBy,
-            new_state=payload.taskState,
             current_user_id=current_user_id,
+            new_state=payload.taskState,
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -155,9 +159,8 @@ def update_due_date(
     try:
         task = service.update_due_date(
             task_id,
-            updated_by=payload.updatedBy,
-            due_date=payload.taskDueDate,
             current_user_id=current_user_id,
+            due_date=payload.taskDueDate,
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

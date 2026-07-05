@@ -10,21 +10,19 @@ class TaskCreateRequest(BaseModel):
     taskTitle: str
     taskDesc: Optional[str] = None
     taskDueDate: Optional[datetime] = None
+    groupId: Optional[str] = None
 
 
 class TaskMetaUpdateRequest(BaseModel):
-    updatedBy: str
     taskTitle: Optional[str] = None
     taskDesc: Optional[str] = None
 
 
 class TaskStateUpdateRequest(BaseModel):
-    updatedBy: str
     taskState: TaskState
 
 
 class TaskDueDateUpdateRequest(BaseModel):
-    updatedBy: str
     taskDueDate: Optional[datetime] = None
 
 
@@ -38,3 +36,4 @@ class TaskResponse(BaseModel):
     createdBy: str
     updatedAt: Optional[datetime] = None
     updatedBy: Optional[str] = None
+    groupId: Optional[str] = None
