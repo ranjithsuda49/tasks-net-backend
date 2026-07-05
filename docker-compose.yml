@@ -1,11 +1,33 @@
 services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: tasknest
+      POSTGRES_PASSWORD: tasknest
+      POSTGRES_DB: tasknest_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tasknest -d tasknest_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   api:
     build: .
     ports:
       - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://tasknest:tasknest@db:5432/tasknest_db
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 3s
       start_period: 5s
       retries: 3
+
+volumes:
+  pgdata:
