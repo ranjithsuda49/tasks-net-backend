@@ -23,9 +23,11 @@ class UserGroupService:
         self, user_id: str, group_id: str, relationship: str, current_user_id: Optional[str] = None
     ) -> UserGroupRelationship:
         self._user_service.get_user(user_id)
-        group = self._group_service.get_group(group_id, current_user_id=current_user_id)
-        if user_id == group.groupCreaterId:
-            raise BadRequestError(ErrorCode.GROUP_CREATOR_CANNOT_BE_MEMBER)
+        group = self._group_service.get_group(group_id)
+        if current_user_id is not None and current_user_id != group.groupCreaterId:
+            raise ForbiddenError(
+                f"User {current_user_id} is not authorized to associate users with group {group_id}"
+            )
         if self.is_member(user_id, group_id):
             raise BadRequestError(ErrorCode.DUPLICATE_GROUP_MEMBERSHIP)
         entity = UserGroupRelationship(
