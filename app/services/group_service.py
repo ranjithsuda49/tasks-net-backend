@@ -5,6 +5,7 @@ from typing import Optional
 from app.exceptions import ForbiddenError, NotFoundError
 from app.models.enums import GroupStatus
 from app.models.group import Group
+from app.models.user_group import UserGroupRelationship
 from app.repositories.group_repository import GroupRepository
 from app.repositories.user_group_repository import UserGroupRepository
 from app.services.user_service import UserService
@@ -42,7 +43,20 @@ class GroupService:
             createdAt=now,
             updatedAt=None,
         )
-        return self._repository.add(group)
+        created = self._repository.add(group)
+        # Every group's creator is automatically a SELF member. Inserted
+        # directly (bypassing UserGroupService.associate()) because
+        # GroupService cannot depend on UserGroupService — that would be a
+        # circular import (UserGroupService already depends on GroupService).
+        self._user_group_repository.add(
+            UserGroupRelationship(
+                uuid=str(uuid.uuid4()),
+                groupId=created.groupId,
+                userId=creater_id,
+                relationship="SELF",
+            )
+        )
+        return created
 
     def get_group(self, group_id: str, current_user_id: Optional[str] = None) -> Group:
         group = self._repository.get(group_id)

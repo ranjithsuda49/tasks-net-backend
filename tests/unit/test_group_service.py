@@ -44,6 +44,19 @@ def test_create_group_succeeds_for_existing_creator(
     assert group.groupStatus == GroupStatus.ACTIVE
 
 
+def test_create_group_auto_associates_creator_as_self_member(
+    group_service: GroupService, user_service: UserService, db_session
+):
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
+    group = group_service.create_group(
+        group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
+    )
+
+    relationship = UserGroupRepository(db_session).find_by_user_and_group(creator.userId, group.groupId)
+    assert relationship is not None
+    assert relationship.relationship == "SELF"
+
+
 def test_get_groups_by_creator_filters_correctly(
     group_service: GroupService, user_service: UserService
 ):
