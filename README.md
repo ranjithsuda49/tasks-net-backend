@@ -50,13 +50,20 @@ http://localhost:8000/health
 
 ## Docker
 
-docker compose up --build
+Two environments, same image, different config via env files:
 
-API available at http://localhost:8000 (Swagger UI at /docs). Postgres now
-runs as its own `db` service (named volume `pgdata` persists data across
-restarts), and the `api` service runs `alembic upgrade head` automatically
-before starting — no manual database setup needed. The image installs only
-`requirements.txt` (no test tooling) and runs a single Uvicorn worker.
+    docker compose up --build                        # UAT (default)
+    docker compose --env-file .env.prod up --build    # PROD
+
+API available at http://localhost:8000 (Swagger UI at /docs) either way.
+Postgres runs as its own `db` service (named volume `pgdata` persists data
+across restarts), and the `api` service runs `alembic upgrade head`
+automatically before starting — no manual database setup needed. `.env`
+(UAT) and `.env.prod` (PROD) hold placeholder values only, not real
+secrets — each sets `COMPOSE_PROJECT_NAME` so the two environments get
+fully isolated containers/volumes even when run on the same machine. The
+image installs only `requirements.txt` (no test tooling) and runs a single
+Uvicorn worker.
 
 ## Test
 

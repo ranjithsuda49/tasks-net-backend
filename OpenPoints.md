@@ -9,9 +9,14 @@ before any production use.
   storage remains anywhere in the codebase, including tests — the full
   suite (`tests/unit`, `tests/integration`, `tests/repositories`) requires
   a running local Postgres (`tasks_net_db_test`).
-- `docker-compose.yml` now runs Postgres as its own `db` service
+- `docker-compose.yml` runs Postgres as its own `db` service
   (`postgres:17-alpine`, named volume `pgdata`), with the `api` service
-  running `alembic upgrade head` automatically on container start. Local
+  running `alembic upgrade head` automatically on container start.
+  Credentials/DB name/port are parameterized via `${VAR}` substitution, not
+  hardcoded — `.env` (UAT, the default) and `.env.prod` (PROD, via
+  `docker compose --env-file .env.prod up`) supply the values, each with
+  its own `COMPOSE_PROJECT_NAME` so the two environments' containers and
+  volumes stay isolated. Neither file holds a real secret. Local
   (non-Docker) development still targets the Postgres 17 instance installed
   via Homebrew (`brew services start postgresql@17`).
 
@@ -230,3 +235,9 @@ around before the API surface grows further.
   as a runtime volume, or inject the JSON contents via an env var and have
   `app/auth.py` support loading credentials from an env-var string in
   addition to a file path. Not resolved by this change.
+- UAT and PROD environments (`.env` / `.env.prod`) currently only vary
+  Postgres credentials/DB name/port — both still share the single
+  build-time-baked Firebase credentials file (see the bullet above). If
+  UAT and PROD ever need separate Firebase projects, that requires solving
+  the credentials-injection gap first (mounting the credentials file at
+  runtime instead of `COPY`-ing it at build time), which isn't done here.
