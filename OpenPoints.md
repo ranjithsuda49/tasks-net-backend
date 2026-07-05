@@ -9,9 +9,11 @@ before any production use.
   storage remains anywhere in the codebase, including tests — the full
   suite (`tests/unit`, `tests/integration`, `tests/repositories`) requires
   a running local Postgres (`tasks_net_db_test`).
-- `docker-compose.yml` does not run Postgres — local development targets
-  the Postgres 17 instance installed via Homebrew (`brew services start
-  postgresql@17`). Revisit if/when this needs to run in Docker.
+- `docker-compose.yml` now runs Postgres as its own `db` service
+  (`postgres:17-alpine`, named volume `pgdata`), with the `api` service
+  running `alembic upgrade head` automatically on container start. Local
+  (non-Docker) development still targets the Postgres 17 instance installed
+  via Homebrew (`brew services start postgresql@17`).
 
 ## Auth & authorization
 - Authentication AND ownership authorization now exist on every endpoint,
@@ -208,14 +210,19 @@ around before the API surface grows further.
 
 ## Deployment
 - Docker is not installed on this development machine (`docker --version`
-  fails with "command not found" as of this writing). The `Dockerfile` and
-  `docker-compose.yml` were therefore verified only indirectly — by running
-  the exact `pip install`/`uvicorn` commands the image uses directly against
-  the local `.venv` — never through an actual `docker build` or
+  fails with "command not found" as of this writing — reconfirmed when the
+  `db` service was added). The `Dockerfile` and `docker-compose.yml`
+  (including the new `db` service, auto-migration-on-startup, and
+  `depends_on: service_healthy` gating) were therefore verified only
+  indirectly — by running the exact `alembic upgrade head`/`uvicorn`
+  commands the image uses directly against a throwaway database on the
+  local Postgres 17 instance, and by parsing `docker-compose.yml` as YAML
+  to confirm its structure, never through an actual `docker build` or
   `docker compose up`. Install Docker Desktop (or the Docker Engine CLI) on
   this machine and run `docker compose up --build` at least once to confirm
-  the image actually builds and serves traffic before relying on it for any
-  real deployment or CI step.
+  the full stack (API + Postgres, auto-migrated) actually builds, starts in
+  the right order, and serves traffic before relying on it for any real
+  deployment or CI step.
 - The Firebase service-account credential (`app/firebase/firebase-adminsdk.json`)
   is required at container start but is gitignored, so a plain
   `docker build` from a clean checkout will NOT have it. Needs an explicit

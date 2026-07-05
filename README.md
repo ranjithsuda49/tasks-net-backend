@@ -52,12 +52,11 @@ http://localhost:8000/health
 
 docker compose up --build
 
-API available at http://localhost:8000 (Swagger UI at /docs). The image
-installs only `requirements.txt` (no test tooling) and runs a single
-Uvicorn worker. Note: `docker-compose.yml` does not run Postgres — the
-containerized `api` service needs a reachable `DATABASE_URL` (e.g.
-pointing at the host's local Postgres) to actually connect, see
-`OpenPoints.md`.
+API available at http://localhost:8000 (Swagger UI at /docs). Postgres now
+runs as its own `db` service (named volume `pgdata` persists data across
+restarts), and the `api` service runs `alembic upgrade head` automatically
+before starting — no manual database setup needed. The image installs only
+`requirements.txt` (no test tooling) and runs a single Uvicorn worker.
 
 ## Test
 
