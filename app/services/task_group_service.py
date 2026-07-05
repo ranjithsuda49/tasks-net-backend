@@ -58,7 +58,7 @@ class TaskGroupService:
         assignee_id: str,
         current_user_id: Optional[str] = None,
     ) -> TaskGroupRelationship:
-        task = self._task_service.get_task(task_id)
+        self._task_service.get_task(task_id)
         # Creator-or-member (same rule as GroupService.get_group elsewhere) —
         # deliberately not creator-only, unlike assign(). Raises NotFoundError
         # if the group doesn't exist, ForbiddenError if caller is neither.
@@ -70,7 +70,7 @@ class TaskGroupService:
             raise NotFoundError(f"No existing assignment for task {task_id} in group {group_id}")
         if assignee_id == existing.assigneeId:
             raise BadRequestError(ErrorCode.REASSIGN_ASSIGNEE_UNCHANGED)
-        if assignee_id != task.createdBy and not self._user_group_service.is_member(assignee_id, group_id):
+        if not self._user_group_service.is_member(assignee_id, group_id):
             raise BadRequestError(ErrorCode.REASSIGN_ASSIGNEE_NOT_GROUP_MEMBER)
 
         updated = existing.model_copy(update={"assigneeId": assignee_id})
