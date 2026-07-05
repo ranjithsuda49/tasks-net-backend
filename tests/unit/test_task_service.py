@@ -73,7 +73,7 @@ def test_update_task_meta_changes_title_and_desc(task_service: TaskService, user
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     assert task.updatedAt is None
     updated = task_service.update_task_meta(
-        task.taskId, updated_by=user.userId, task_title="Buy oat milk", task_desc="2 liters"
+        task.taskId, current_user_id=user.userId, task_title="Buy oat milk", task_desc="2 liters"
     )
     assert updated.taskTitle == "Buy oat milk"
     assert updated.taskDesc == "2 liters"
@@ -86,7 +86,7 @@ def test_update_task_state_transitions(task_service: TaskService, user_service: 
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     assert task.updatedAt is None
     updated = task_service.update_task_state(
-        task.taskId, updated_by=user.userId, new_state=TaskState.IN_PROGRESS
+        task.taskId, current_user_id=user.userId, new_state=TaskState.IN_PROGRESS
     )
     assert updated.taskState == TaskState.IN_PROGRESS
     assert updated.updatedAt is not None
@@ -97,9 +97,9 @@ def test_update_task_state_raises_bad_request_if_already_completed(
 ):
     user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
-    task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.COMPLETED)
+    task_service.update_task_state(task.taskId, current_user_id=user.userId, new_state=TaskState.COMPLETED)
     with pytest.raises(BadRequestError) as exc_info:
-        task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.COMPLETED)
+        task_service.update_task_state(task.taskId, current_user_id=user.userId, new_state=TaskState.COMPLETED)
     assert exc_info.value.error_code == ErrorCode.TASK_ALREADY_IN_REQUESTED_STATE
     assert exc_info.value.http_code == 400
 
@@ -110,7 +110,7 @@ def test_update_task_state_raises_bad_request_if_same_state_requested(
     user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     with pytest.raises(BadRequestError) as exc_info:
-        task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.TODO)
+        task_service.update_task_state(task.taskId, current_user_id=user.userId, new_state=TaskState.TODO)
     assert exc_info.value.error_code == ErrorCode.TASK_ALREADY_IN_REQUESTED_STATE
     assert exc_info.value.http_code == 400
 
@@ -120,9 +120,9 @@ def test_update_task_state_allows_moving_out_of_completed(
 ):
     user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
-    task_service.update_task_state(task.taskId, updated_by=user.userId, new_state=TaskState.COMPLETED)
+    task_service.update_task_state(task.taskId, current_user_id=user.userId, new_state=TaskState.COMPLETED)
     updated = task_service.update_task_state(
-        task.taskId, updated_by=user.userId, new_state=TaskState.TODO
+        task.taskId, current_user_id=user.userId, new_state=TaskState.TODO
     )
     assert updated.taskState == TaskState.TODO
 
@@ -132,7 +132,7 @@ def test_update_due_date(task_service: TaskService, user_service: UserService):
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     assert task.updatedAt is None
     new_due_date = datetime.now(timezone.utc) + timedelta(days=3)
-    updated = task_service.update_due_date(task.taskId, updated_by=user.userId, due_date=new_due_date)
+    updated = task_service.update_due_date(task.taskId, current_user_id=user.userId, due_date=new_due_date)
     assert updated.taskDueDate == new_due_date
     assert updated.updatedAt is not None
 
@@ -141,9 +141,9 @@ def test_update_due_date_clears_existing_due_date(task_service: TaskService, use
     user = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     existing_due_date = datetime.now(timezone.utc) + timedelta(days=3)
-    task_service.update_due_date(task.taskId, updated_by=user.userId, due_date=existing_due_date)
+    task_service.update_due_date(task.taskId, current_user_id=user.userId, due_date=existing_due_date)
 
-    cleared = task_service.update_due_date(task.taskId, updated_by=user.userId, due_date=None)
+    cleared = task_service.update_due_date(task.taskId, current_user_id=user.userId, due_date=None)
 
     assert cleared.taskDueDate is None
     assert cleared.updatedBy == user.userId
@@ -178,7 +178,7 @@ def test_update_task_meta_raises_forbidden_if_caller_is_not_creator(
     task = task_service.create_task(task_title="Buy milk", created_by=user.userId)
     with pytest.raises(ForbiddenError):
         task_service.update_task_meta(
-            task.taskId, updated_by=user.userId, task_title="New", current_user_id="outsider"
+            task.taskId, current_user_id="outsider", task_title="New"
         )
 
 

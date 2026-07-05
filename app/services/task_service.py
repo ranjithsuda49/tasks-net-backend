@@ -81,54 +81,44 @@ class TaskService:
     def update_task_meta(
         self,
         task_id: str,
-        updated_by: str,
+        current_user_id: str,
         task_title: Optional[str] = None,
         task_desc: Optional[str] = None,
-        current_user_id: Optional[str] = None,
     ) -> Task:
-        self._user_service.get_user(updated_by)
         task = self.get_task(task_id)
-        if current_user_id is not None and current_user_id != task.createdBy:
+        if current_user_id != task.createdBy:
             raise ForbiddenError(f"User {current_user_id} is not authorized to update task {task_id}")
         updated = task.model_copy(
             update={
                 "taskTitle": task_title if task_title is not None else task.taskTitle,
                 "taskDesc": task_desc if task_desc is not None else task.taskDesc,
-                "updatedBy": updated_by,
+                "updatedBy": current_user_id,
                 "updatedAt": datetime.now(timezone.utc),
             }
         )
         return self._repository.update(updated)
 
-    def update_task_state(
-        self, task_id: str, updated_by: str, new_state: TaskState, current_user_id: Optional[str] = None
-    ) -> Task:
-        self._user_service.get_user(updated_by)
+    def update_task_state(self, task_id: str, current_user_id: str, new_state: TaskState) -> Task:
         task = self.get_task(task_id, current_user_id=current_user_id)
         if task.taskState == new_state:
             raise BadRequestError(ErrorCode.TASK_ALREADY_IN_REQUESTED_STATE)
         updated = task.model_copy(
             update={
                 "taskState": new_state,
-                "updatedBy": updated_by,
+                "updatedBy": current_user_id,
                 "updatedAt": datetime.now(timezone.utc),
             }
         )
         return self._repository.update(updated)
 
     def update_due_date(
-        self,
-        task_id: str,
-        updated_by: str,
-        due_date: Optional[datetime],
-        current_user_id: Optional[str] = None,
+        self, task_id: str, current_user_id: str, due_date: Optional[datetime]
     ) -> Task:
-        self._user_service.get_user(updated_by)
         task = self.get_task(task_id, current_user_id=current_user_id)
         updated = task.model_copy(
             update={
                 "taskDueDate": due_date,
-                "updatedBy": updated_by,
+                "updatedBy": current_user_id,
                 "updatedAt": datetime.now(timezone.utc),
             }
         )
