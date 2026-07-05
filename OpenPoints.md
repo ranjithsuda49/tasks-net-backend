@@ -32,11 +32,16 @@ before any production use.
   - Groups (read): caller must be the creator or a member. Groups
     (write): creator only. `GET /api/v1/users/{userId}/groups`: caller
     must be that `userId`.
-  - Group membership (read/associate): caller must be the creator or a
-    member. Disassociate: caller must be the member being removed, OR
-    the group's creator.
+  - Group membership: only the group's creator can associate or
+    disassociate members (`ForbiddenError`/403 otherwise) — not
+    creator-or-member as with other group endpoints. The creator can never
+    be disassociated (`BadRequestError`/`ERR_TASKS_009`). Every group
+    automatically includes its creator as a `relationship="SELF"` member
+    from creation.
   - Tasks (read/state/due-date): caller must be the creator or the
-    assignee. Task meta update: creator only. Assign: creator only.
+    assignee. Task meta update: creator only. Assign: creator only
+    (endpoint removed — assignment now only happens via `POST
+    /api/v1/tasks` with a `groupId`, which auto-assigns the creator).
     Reassign: creator or any group member (a deliberate divergence from
     assign's creator-only rule). Group-tasks listing: creator or any
     member.
@@ -57,9 +62,10 @@ before any production use.
   overridable via the `FIREBASE_CREDENTIALS_PATH` env var.
 
 ## Error codes
-`app.exceptions.BadRequestError` is raised by `TaskGroupService.assign`,
-`TaskGroupService.reassign`, `TaskService.update_task_state`, and
-`UserGroupService.associate` for their respective validation rules;
+`app.exceptions.BadRequestError` is raised by `TaskGroupService.assign`
+(no longer HTTP-reachable — see Design notes below), `TaskGroupService.reassign`,
+`TaskService.update_task_state`, `UserGroupService.associate`, and
+`UserGroupService.disassociate` for their respective validation rules;
 routers translate it to HTTP 400 with a JSON body of the form
 `{"detail": {"errorCode": "ERR_TASKS_00N", "message": "..."}}`.
 See `app.exceptions.ErrorCode` and `ERROR_CODE_MESSAGES` for the current
@@ -70,17 +76,17 @@ code -> message mapping:
 | `ERR_TASKS_001` | Assignee is not a member of the target group |
 | `ERR_TASKS_002` | Task is already in the requested state (any no-op state transition, not just COMPLETED->COMPLETED) |
 | `ERR_TASKS_003` | User is already associated with this group |
-| `ERR_TASKS_006` | Group creator cannot be a member of their own group |
 | `ERR_TASKS_007` | Requested Task assignee is same as current assignee |
 | `ERR_TASKS_008` | Requested Assignee is not part of the Group |
+| `ERR_TASKS_009` | Group creator cannot be de-associated with group |
 
-Note: `ERR_TASKS_004` and `ERR_TASKS_005` are intentionally unused/retired.
-`ERR_TASKS_004` was folded into the broadened `ERR_TASKS_002`. `ERR_TASKS_005`
-(`TASK_CREATOR_CANNOT_BE_ASSIGNEE`) was retired — task creators can now be
-assigned to their own tasks, both via auto-assignment on creation and via
-the manual assign endpoint (both `assign` and `reassign` skip the
-group-membership check specifically for the task's own creator, since a
-group's creator can never be a `UserGroupRelationship` member row).
+Note: `ERR_TASKS_004`, `ERR_TASKS_005`, and `ERR_TASKS_006` are intentionally
+unused/retired. `ERR_TASKS_004` was folded into the broadened `ERR_TASKS_002`.
+`ERR_TASKS_005` (`TASK_CREATOR_CANNOT_BE_ASSIGNEE`) and `ERR_TASKS_006`
+(`GROUP_CREATOR_CANNOT_BE_MEMBER`) were both retired business rules: task
+creators can be their own task's assignee (both `assign` and `reassign` skip
+the group-membership check for the task's own creator), and group creators
+are now always members (`relationship="SELF"`) of their own group.
 
 ## API surface gaps
 - No delete endpoints for `User` or `Group` (spec only asks for status
@@ -100,6 +106,12 @@ group's creator can never be a `UserGroupRelationship` member row).
   `PATCH .../assignee` (`reassign`), which requires an existing assignment
   and a different target assignee. There is currently no way to clear an
   assignee back to `None` via the API.
+- `POST /api/v1/groups/{groupId}/tasks/{taskId}/assignee` (manual assign) no
+  longer exists either. `TaskGroupService.assign()` (the service method) is
+  kept because unit tests still use it directly as fixture setup, but
+  nothing in production calls it — the only ways a task gets an initial
+  assignment now are auto-assign-on-create-with-`groupId`, or (once one
+  exists) `PATCH .../assignee` (`reassign`).
 - A `TaskGroupRelationship` row created automatically at task-creation time
   (when `groupId` is set) is indistinguishable from one created via the
   manual `assign`/`reassign` endpoints — there's no "origin" flag.

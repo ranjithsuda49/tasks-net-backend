@@ -61,18 +61,22 @@ group referencing it) still share consistent state within a single test.
 ## Entity relationships
 
 - `User` 1—0..N `UserGroupRelationship` N—1 `Group` (many-to-many join with
-  a `relationship` label, e.g. "Father"). Constraint: a group's creator
-  (`Group.groupCreaterId`) can never be one of its own members — enforced
-  in `UserGroupService.associate`.
+  a `relationship` label, e.g. "Father"). A group's creator is automatically
+  associated with `relationship="SELF"` at creation time (inserted directly
+  by `GroupService.create_group` via `UserGroupRepository`, bypassing
+  `UserGroupService.associate()` to avoid a circular dependency). Only the
+  group's creator can associate or disassociate members
+  (`UserGroupService.associate`/`disassociate`); the creator themselves can
+  never be disassociated.
 - `Task` 0..1—0..1 `Group` via `Task.groupId` (a task's single "home" group,
   set only at creation, immutable thereafter — separate from the
   many-to-many `TaskGroupRelationship` join below). Creating a task with a
   `groupId` requires the creator to already be that group's creator or a
   member (`GroupService.get_group`'s existing check), and automatically
   creates a `TaskGroupRelationship` row with `assigneeId` = the creator,
-  inserted directly via `TaskGroupRepository` (bypassing
-  `TaskGroupService.assign()`, since a group's own creator can never be a
-  `UserGroupRelationship` member row).
+  inserted directly via `TaskGroupRepository` (`TaskService` doesn't depend
+  on `TaskGroupService`, only its repository, so it can't call
+  `TaskGroupService.assign()` here regardless).
 - `Task` 0..1—0..N `TaskGroupRelationship` N—0..1 `Group`, with an optional
   `assigneeId` (a `User`) on each join row. A task's creator CAN be its own
   assignee (the prior `ERR_TASKS_005` constraint was retired).
@@ -127,6 +131,5 @@ serializes to JSON.
 | PATCH | /api/v1/tasks/{taskId}/due-date | Update due date |
 
 
-| POST | /api/v1/groups/{groupId}/tasks/{taskId}/assignee | Assign task to a user within a group (creator only) |
 | PATCH | /api/v1/groups/{groupId}/tasks/{taskId}/assignee | Reassign task's assignee within a group (creator or member) |
 | GET | /api/v1/groups/{groupId}/tasks | Fetch all tasks belonging to a group (creator or any member) |

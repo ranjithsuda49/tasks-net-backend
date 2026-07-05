@@ -54,10 +54,9 @@ class TaskService:
         created = self._repository.add(task)
         if group_id is not None:
             # Auto-bootstrap the task-group assignment with assignee = creator.
-            # Inserted directly (bypassing TaskGroupService.assign()) because a
-            # group's own creator can never be a UserGroupRelationship member
-            # row, which would otherwise fail assign()'s is_member check even
-            # though the creator is a legitimate task creator here.
+            # Inserted directly via the repository — TaskService only depends
+            # on TaskGroupRepository, not TaskGroupService, so it has no way
+            # to call TaskGroupService.assign() here regardless.
             relationship = TaskGroupRelationship(
                 uuid=str(uuid.uuid4()),
                 taskId=created.taskId,
