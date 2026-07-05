@@ -36,10 +36,14 @@ before any production use.
     member. Disassociate: caller must be the member being removed, OR
     the group's creator.
   - Tasks (read/state/due-date): caller must be the creator or the
-    assignee. Task meta update: creator only. Assign/unassign: creator
-    only.
+    assignee. Task meta update: creator only. Assign: creator only.
+    Reassign: creator or any group member (a deliberate divergence from
+    assign's creator-only rule). Group-tasks listing: creator or any
+    member.
   - `GET /api/v1/tasks`: returns tasks created by or assigned to the
     caller, sorted by most recently updated/created first.
+  - `updatedBy` on task updates (meta/state/due-date) is no longer a
+    request-body field — it's always `current_user_id`.
 - The Firebase `uid`-vs-`User.userId` ID-space mismatch noted in an
   earlier revision of this doc is resolved for any user created from now
   on: `UserService.create_user` requires an explicit `user_id` and the
@@ -54,9 +58,10 @@ before any production use.
 
 ## Error codes
 `app.exceptions.BadRequestError` is raised by `TaskGroupService.assign`,
-`TaskService.update_task_state`, and `UserGroupService.associate` for their
-respective validation rules; routers translate it to HTTP 400 with a JSON
-body of the form `{"detail": {"errorCode": "ERR_TASKS_00N", "message": "..."}}`.
+`TaskGroupService.reassign`, `TaskService.update_task_state`, and
+`UserGroupService.associate` for their respective validation rules;
+routers translate it to HTTP 400 with a JSON body of the form
+`{"detail": {"errorCode": "ERR_TASKS_00N", "message": "..."}}`.
 See `app.exceptions.ErrorCode` and `ERROR_CODE_MESSAGES` for the current
 code -> message mapping:
 
@@ -65,13 +70,17 @@ code -> message mapping:
 | `ERR_TASKS_001` | Assignee is not a member of the target group |
 | `ERR_TASKS_002` | Task is already in the requested state (any no-op state transition, not just COMPLETED->COMPLETED) |
 | `ERR_TASKS_003` | User is already associated with this group |
-| `ERR_TASKS_005` | Task creator cannot be assigned to their own task |
 | `ERR_TASKS_006` | Group creator cannot be a member of their own group |
+| `ERR_TASKS_007` | Requested Task assignee is same as current assignee |
+| `ERR_TASKS_008` | Requested Assignee is not part of the Group |
 
-Note: `ERR_TASKS_004` is intentionally unused. The original ask called for
-a separate "task already in requested state" code, but that was folded
-into a broadened `ERR_TASKS_002` instead of introduced as a new,
-overlapping code.
+Note: `ERR_TASKS_004` and `ERR_TASKS_005` are intentionally unused/retired.
+`ERR_TASKS_004` was folded into the broadened `ERR_TASKS_002`. `ERR_TASKS_005`
+(`TASK_CREATOR_CANNOT_BE_ASSIGNEE`) was retired — task creators can now be
+assigned to their own tasks, both via auto-assignment on creation and via
+the manual assign endpoint (both `assign` and `reassign` skip the
+group-membership check specifically for the task's own creator, since a
+group's creator can never be a `UserGroupRelationship` member row).
 
 ## API surface gaps
 - No delete endpoints for `User` or `Group` (spec only asks for status
@@ -86,15 +95,21 @@ overlapping code.
   (`GET /api/v1/groups/{groupId}/members`).
 
 ## Design notes / asymmetries
-- `UserGroupService.disassociate` (`app/services/user_group_service.py`)
-  hard-deletes the `UserGroupRelationship` row, while
-  `TaskGroupService.unassign` (`app/services/task_group_service.py`)
-  instead sets `assigneeId=None` on the `TaskGroupRelationship` row and
-  keeps it. This is intentional: the Task-Group relationship row
-  represents "this task is associated with this group," with `assigneeId`
-  as a mutable sub-field of that association, so removing the assignee
-  doesn't remove the association. Don't assume symmetry between these two
-  removal semantics when reading or extending this code.
+- `TaskGroupService.unassign` no longer exists (removed along with its
+  `DELETE .../assignee/{assigneeId}` route) — reassignment is now done via
+  `PATCH .../assignee` (`reassign`), which requires an existing assignment
+  and a different target assignee. There is currently no way to clear an
+  assignee back to `None` via the API.
+- A `TaskGroupRelationship` row created automatically at task-creation time
+  (when `groupId` is set) is indistinguishable from one created via the
+  manual `assign`/`reassign` endpoints — there's no "origin" flag.
+- `Task.groupId` (a task's single "home" group, set only at creation) and
+  the many-to-many `TaskGroupRelationship`/`group_tasks` join table are
+  independent concepts that happen to usually agree: nothing prevents a
+  future `assign`/`reassign` call from pointing a task's assignment at a
+  *different* group than its `groupId`. This was already true before
+  `groupId` existed (the join table has always been independent of
+  anything on `Task`) — not a new gap, just newly visible.
 
 ## Observability & ops
 - No structured logging, request tracing, or metrics.

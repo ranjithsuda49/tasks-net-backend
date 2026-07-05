@@ -8,8 +8,8 @@ relationships — built with FastAPI and PostgreSQL.
 - **Users** — create, fetch, update (name/phone/email), toggle ACTIVE/IN-ACTIVE status.
 - **Groups** — create, fetch, update (name/desc/iconUrl), toggle status; fetch all groups created by a user.
 - **User-Group relationships** — associate/de-associate a user with a group (e.g. "Father" of a "Family" group).
-- **Tasks** — create, fetch, update title/desc, move between states (TODO / IN-PROGRESS / COMPLETED), update due date.
-- **Task-Group relationships** — assign/unassign a task to a user within a group.
+- **Tasks** — create (optionally for a group, auto-assigning the creator), fetch, update title/desc, move between states (TODO / IN-PROGRESS / COMPLETED), update due date.
+- **Task-Group relationships** — assign or reassign a task to a user within a group; list all tasks belonging to a group.
 
 See `Arch.md` for the full endpoint inventory.
 

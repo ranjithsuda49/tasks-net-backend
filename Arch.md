@@ -64,10 +64,18 @@ group referencing it) still share consistent state within a single test.
   a `relationship` label, e.g. "Father"). Constraint: a group's creator
   (`Group.groupCreaterId`) can never be one of its own members — enforced
   in `UserGroupService.associate`.
+- `Task` 0..1—0..1 `Group` via `Task.groupId` (a task's single "home" group,
+  set only at creation, immutable thereafter — separate from the
+  many-to-many `TaskGroupRelationship` join below). Creating a task with a
+  `groupId` requires the creator to already be that group's creator or a
+  member (`GroupService.get_group`'s existing check), and automatically
+  creates a `TaskGroupRelationship` row with `assigneeId` = the creator,
+  inserted directly via `TaskGroupRepository` (bypassing
+  `TaskGroupService.assign()`, since a group's own creator can never be a
+  `UserGroupRelationship` member row).
 - `Task` 0..1—0..N `TaskGroupRelationship` N—0..1 `Group`, with an optional
-  `assigneeId` (a `User`) on each join row. Constraint: a task's creator
-  (`Task.createdBy`) can never be its own assignee — enforced in
-  `TaskGroupService.assign`.
+  `assigneeId` (a `User`) on each join row. A task's creator CAN be its own
+  assignee (the prior `ERR_TASKS_005` constraint was retired).
 
 ## Request flow example (create user)
 
@@ -112,12 +120,13 @@ serializes to JSON.
 | POST | /api/v1/groups/{groupId}/members | Associate a user to a group |
 | DELETE | /api/v1/groups/{groupId}/members/{userId} | De-associate a user from a group |
 
-| POST | /api/v1/tasks | Create a task |
+| POST | /api/v1/tasks | Create a task (optional groupId; auto-assigns creator if set) |
 | GET | /api/v1/tasks/{taskId} | Fetch a task |
 | PATCH | /api/v1/tasks/{taskId} | Update title/desc |
 | PATCH | /api/v1/tasks/{taskId}/state | Move task to a new state |
 | PATCH | /api/v1/tasks/{taskId}/due-date | Update due date |
 
 
-| POST | /api/v1/groups/{groupId}/tasks/{taskId}/assignee | Assign task to a user within a group |
-| DELETE | /api/v1/groups/{groupId}/tasks/{taskId}/assignee/{assigneeId} | Remove that assignment |
+| POST | /api/v1/groups/{groupId}/tasks/{taskId}/assignee | Assign task to a user within a group (creator only) |
+| PATCH | /api/v1/groups/{groupId}/tasks/{taskId}/assignee | Reassign task's assignee within a group (creator or member) |
+| GET | /api/v1/groups/{groupId}/tasks | Fetch all tasks belonging to a group (creator or any member) |
