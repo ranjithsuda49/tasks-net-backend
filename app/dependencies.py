@@ -58,8 +58,9 @@ def get_task_service(
     repository: TaskRepository = Depends(get_task_repository),
     user_service: UserService = Depends(get_user_service),
     task_group_repository: TaskGroupRepository = Depends(get_task_group_repository),
+    group_service: GroupService = Depends(get_group_service),
 ) -> TaskService:
-    return TaskService(repository, user_service, task_group_repository)
+    return TaskService(repository, user_service, task_group_repository, group_service)
 
 
 def get_task_group_service(

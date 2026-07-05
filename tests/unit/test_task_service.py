@@ -22,13 +22,15 @@ def user_service(db_session) -> UserService:
 
 
 @pytest.fixture
-def task_service(db_session, user_service: UserService) -> TaskService:
-    return TaskService(TaskRepository(db_session), user_service, TaskGroupRepository(db_session))
+def group_service(db_session, user_service: UserService) -> GroupService:
+    return GroupService(GroupRepository(db_session), user_service, UserGroupRepository(db_session))
 
 
 @pytest.fixture
-def group_service(db_session, user_service: UserService) -> GroupService:
-    return GroupService(GroupRepository(db_session), user_service, UserGroupRepository(db_session))
+def task_service(db_session, user_service: UserService, group_service: GroupService) -> TaskService:
+    return TaskService(
+        TaskRepository(db_session), user_service, TaskGroupRepository(db_session), group_service
+    )
 
 
 @pytest.fixture
@@ -202,3 +204,77 @@ def test_get_tasks_for_user_returns_created_and_assigned_sorted_by_latest(
     result_ids = [t.taskId for t in results]
     assert set(result_ids) == {task_a.taskId, task_b.taskId}
     assert result_ids[0] == task_b.taskId
+
+
+def test_create_task_with_group_id_sets_group_id_and_auto_assigns_creator(
+    task_service: TaskService, user_service: UserService, group_service: GroupService, db_session
+):
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
+    group = group_service.create_group(
+        group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
+    )
+
+    task = task_service.create_task(task_title="Buy milk", created_by=creator.userId, group_id=group.groupId)
+
+    assert task.groupId == group.groupId
+    relationship = TaskGroupRepository(db_session).find_by_task_and_group(task.taskId, group.groupId)
+    assert relationship is not None
+    assert relationship.assigneeId == creator.userId
+
+
+def test_create_task_with_group_id_as_member_succeeds(
+    task_service: TaskService, user_service: UserService, group_service: GroupService, db_session
+):
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
+    member = user_service.create_user(user_id="bob", first_name="Bob", last_name="Smith")
+    group = group_service.create_group(
+        group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
+    )
+    user_group_service = UserGroupService(UserGroupRepository(db_session), user_service, group_service)
+    user_group_service.associate(member.userId, group.groupId, "Member")
+
+    task = task_service.create_task(task_title="Buy milk", created_by=member.userId, group_id=group.groupId)
+
+    assert task.groupId == group.groupId
+    relationship = TaskGroupRepository(db_session).find_by_task_and_group(task.taskId, group.groupId)
+    assert relationship.assigneeId == member.userId
+
+
+def test_create_task_with_group_id_raises_forbidden_if_caller_neither_creator_nor_member(
+    task_service: TaskService, user_service: UserService, group_service: GroupService
+):
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
+    outsider = user_service.create_user(user_id="cara", first_name="Cara", last_name="Jones")
+    group = group_service.create_group(
+        group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
+    )
+
+    with pytest.raises(ForbiddenError):
+        task_service.create_task(task_title="Buy milk", created_by=outsider.userId, group_id=group.groupId)
+
+
+def test_create_task_with_unknown_group_id_raises_not_found(
+    task_service: TaskService, user_service: UserService
+):
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
+    with pytest.raises(NotFoundError):
+        task_service.create_task(task_title="Buy milk", created_by=creator.userId, group_id="unknown-group")
+
+
+def test_list_tasks_by_group_filters_correctly(
+    task_service: TaskService, user_service: UserService, group_service: GroupService
+):
+    creator = user_service.create_user(user_id="ada", first_name="Ada", last_name="Lovelace")
+    group_a = group_service.create_group(
+        group_name="Smiths", group_desc=None, group_category="Family", creater_id=creator.userId
+    )
+    group_b = group_service.create_group(
+        group_name="Others", group_desc=None, group_category="Office", creater_id=creator.userId
+    )
+    task_service.create_task(task_title="In A", created_by=creator.userId, group_id=group_a.groupId)
+    task_service.create_task(task_title="In B", created_by=creator.userId, group_id=group_b.groupId)
+    task_service.create_task(task_title="No group", created_by=creator.userId)
+
+    results = task_service.list_tasks_by_group(group_a.groupId)
+
+    assert [t.taskTitle for t in results] == ["In A"]

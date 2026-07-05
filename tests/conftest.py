@@ -72,7 +72,7 @@ def client(db_session):
     user_service = UserService(user_repo)
     group_service = GroupService(group_repo, user_service, user_group_repo)
     user_group_service = UserGroupService(user_group_repo, user_service, group_service)
-    task_service = TaskService(task_repo, user_service, task_group_repo)
+    task_service = TaskService(task_repo, user_service, task_group_repo, group_service)
     task_group_service = TaskGroupService(
         task_group_repo, task_service, group_service, user_service, user_group_service
     )
@@ -108,7 +108,7 @@ def unauthenticated_client(db_session):
     user_service = UserService(user_repo)
     group_service = GroupService(group_repo, user_service, user_group_repo)
     user_group_service = UserGroupService(user_group_repo, user_service, group_service)
-    task_service = TaskService(task_repo, user_service, task_group_repo)
+    task_service = TaskService(task_repo, user_service, task_group_repo, group_service)
     task_group_service = TaskGroupService(
         task_group_repo, task_service, group_service, user_service, user_group_service
     )

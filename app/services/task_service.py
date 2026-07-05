@@ -5,8 +5,10 @@ from typing import Optional
 from app.exceptions import BadRequestError, ErrorCode, ForbiddenError, NotFoundError
 from app.models.enums import TaskState
 from app.models.task import Task
+from app.models.task_group import TaskGroupRelationship
 from app.repositories.base import BaseRepository
 from app.repositories.task_group_repository import TaskGroupRepository
+from app.services.group_service import GroupService
 from app.services.user_service import UserService
 
 
@@ -16,10 +18,12 @@ class TaskService:
         repository: BaseRepository[Task],
         user_service: UserService,
         task_group_repository: TaskGroupRepository,
+        group_service: GroupService,
     ):
         self._repository = repository
         self._user_service = user_service
         self._task_group_repository = task_group_repository
+        self._group_service = group_service
 
     def create_task(
         self,
@@ -27,8 +31,13 @@ class TaskService:
         created_by: str,
         task_desc: Optional[str] = None,
         task_due_date: Optional[datetime] = None,
+        group_id: Optional[str] = None,
     ) -> Task:
         self._user_service.get_user(created_by)
+        if group_id is not None:
+            # Raises NotFoundError if the group doesn't exist, ForbiddenError
+            # if created_by is neither the group's creator nor a member.
+            self._group_service.get_group(group_id, current_user_id=created_by)
         now = datetime.now(timezone.utc)
         task = Task(
             taskId=str(uuid.uuid4()),
@@ -40,8 +49,23 @@ class TaskService:
             createdBy=created_by,
             updatedAt=None,
             updatedBy=None,
+            groupId=group_id,
         )
-        return self._repository.add(task)
+        created = self._repository.add(task)
+        if group_id is not None:
+            # Auto-bootstrap the task-group assignment with assignee = creator.
+            # Inserted directly (bypassing TaskGroupService.assign()) because a
+            # group's own creator can never be a UserGroupRelationship member
+            # row, which would otherwise fail assign()'s is_member check even
+            # though the creator is a legitimate task creator here.
+            relationship = TaskGroupRelationship(
+                uuid=str(uuid.uuid4()),
+                taskId=created.taskId,
+                groupId=group_id,
+                assigneeId=created_by,
+            )
+            self._task_group_repository.add(relationship)
+        return created
 
     def get_task(self, task_id: str, current_user_id: Optional[str] = None) -> Task:
         task = self._repository.get(task_id)
@@ -124,3 +148,6 @@ class TaskService:
         all_tasks = created + assigned_tasks
         all_tasks.sort(key=lambda t: t.updatedAt or t.createdAt, reverse=True)
         return all_tasks
+
+    def list_tasks_by_group(self, group_id: str) -> list[Task]:
+        return self._repository.list_by_group(group_id)
