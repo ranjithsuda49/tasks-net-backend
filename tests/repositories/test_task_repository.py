@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.db.orm_models import UserRow
+from app.db.orm_models import GroupRow, UserRow
 from app.models.enums import TaskState, UserStatus
 from app.models.task import Task
 from app.repositories.task_repository import TaskRepository
@@ -18,12 +18,26 @@ def _make_user_row(db_session, user_id="user-1") -> UserRow:
     return row
 
 
-def _make_task(task_id="task-1", created_by="user-1") -> Task:
+def _make_group_row(db_session, group_id="group-1", creater_id="user-1") -> GroupRow:
+    row = GroupRow(
+        id=group_id,
+        group_name="Smiths",
+        group_category="Family",
+        group_creater_id=creater_id,
+        created_at=datetime.now(timezone.utc),
+    )
+    db_session.add(row)
+    db_session.flush()
+    return row
+
+
+def _make_task(task_id="task-1", created_by="user-1", group_id=None) -> Task:
     return Task(
         taskId=task_id,
         taskTitle="Buy milk",
         createdAt=datetime.now(timezone.utc),
         createdBy=created_by,
+        groupId=group_id,
     )
 
 
@@ -83,3 +97,44 @@ def test_list_by_creator_filters_correctly(db_session):
     results = repo.list_by_creator("user-1")
 
     assert [t.taskId for t in results] == ["task-1"]
+
+
+def test_add_and_get_round_trips_group_id(db_session):
+    _make_user_row(db_session)
+    _make_group_row(db_session)
+    repo = TaskRepository(db_session)
+    task = _make_task(group_id="group-1")
+
+    repo.add(task)
+    fetched = repo.get(task.taskId)
+
+    assert fetched.groupId == "group-1"
+
+
+def test_list_by_group_filters_correctly(db_session):
+    _make_user_row(db_session)
+    _make_group_row(db_session, "group-1")
+    _make_group_row(db_session, "group-2")
+    repo = TaskRepository(db_session)
+    repo.add(_make_task("task-1", group_id="group-1"))
+    repo.add(_make_task("task-2", group_id="group-2"))
+
+    results = repo.list_by_group("group-1")
+
+    assert [t.taskId for t in results] == ["task-1"]
+
+
+def test_update_never_changes_group_id(db_session):
+    _make_user_row(db_session)
+    _make_group_row(db_session, "group-1")
+    _make_group_row(db_session, "group-2")
+    repo = TaskRepository(db_session)
+    task = _make_task(group_id="group-1")
+    repo.add(task)
+
+    attempted = task.model_copy(update={"groupId": "group-2", "taskTitle": "Buy oat milk"})
+    repo.update(attempted)
+
+    fetched = repo.get(task.taskId)
+    assert fetched.taskTitle == "Buy oat milk"
+    assert fetched.groupId == "group-1"

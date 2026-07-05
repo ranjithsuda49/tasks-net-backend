@@ -22,6 +22,7 @@ class TaskRepository(BaseRepository[Task]):
             created_by=entity.createdBy,
             updated_at=entity.updatedAt,
             updated_by=entity.updatedBy,
+            group_id=entity.groupId,
         )
         self._session.add(row)
         self._session.flush()
@@ -32,6 +33,8 @@ class TaskRepository(BaseRepository[Task]):
         return self._to_domain(row) if row is not None else None
 
     def update(self, entity: Task) -> Task:
+        # group_id is never written here: Task.groupId is immutable after
+        # creation, and this is where that guarantee is enforced.
         row = self._session.get(TaskRow, entity.taskId)
         row.task_title = entity.taskTitle
         row.task_desc = entity.taskDesc
@@ -49,6 +52,10 @@ class TaskRepository(BaseRepository[Task]):
         rows = self._session.query(TaskRow).filter(TaskRow.created_by == created_by).all()
         return [self._to_domain(row) for row in rows]
 
+    def list_by_group(self, group_id: str) -> list[Task]:
+        rows = self._session.query(TaskRow).filter(TaskRow.group_id == group_id).all()
+        return [self._to_domain(row) for row in rows]
+
     @staticmethod
     def _to_domain(row: TaskRow) -> Task:
         return Task(
@@ -61,4 +68,5 @@ class TaskRepository(BaseRepository[Task]):
             createdBy=row.created_by,
             updatedAt=row.updated_at,
             updatedBy=row.updated_by,
+            groupId=row.group_id,
         )
