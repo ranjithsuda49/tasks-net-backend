@@ -2,6 +2,7 @@ import uuid
 from typing import Optional
 
 from app.exceptions import BadRequestError, ErrorCode, ForbiddenError, NotFoundError
+from app.models.task import Task
 from app.models.task_group import TaskGroupRelationship
 from app.repositories.task_group_repository import TaskGroupRepository
 from app.services.group_service import GroupService
@@ -74,3 +75,7 @@ class TaskGroupService:
 
         updated = existing.model_copy(update={"assigneeId": assignee_id})
         return self._repository.update(updated)
+
+    def list_tasks_for_group(self, group_id: str, current_user_id: Optional[str] = None) -> list[Task]:
+        self._group_service.get_group(group_id, current_user_id=current_user_id)
+        return self._task_service.list_tasks_by_group(group_id)

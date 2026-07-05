@@ -215,3 +215,38 @@ def test_reassign_raises_forbidden_if_caller_is_not_a_group_member(
         task_group_service.reassign(
             task.taskId, group.groupId, creator.userId, current_user_id="outsider"
         )
+
+
+def test_list_tasks_for_group_returns_tasks_for_creator_caller(
+    task_group_service, user_service, group_service, task_service, user_group_service
+):
+    creator, assignee, group, _ = _setup(user_service, group_service, task_service, user_group_service)
+    group_task = task_service.create_task(
+        task_title="Group task", created_by=creator.userId, group_id=group.groupId
+    )
+    results = task_group_service.list_tasks_for_group(group.groupId, current_user_id=creator.userId)
+    assert [t.taskId for t in results] == [group_task.taskId]
+
+
+def test_list_tasks_for_group_returns_tasks_for_member_caller(
+    task_group_service, user_service, group_service, task_service, user_group_service
+):
+    creator, assignee, group, _ = _setup(user_service, group_service, task_service, user_group_service)
+    group_task = task_service.create_task(
+        task_title="Group task", created_by=creator.userId, group_id=group.groupId
+    )
+    results = task_group_service.list_tasks_for_group(group.groupId, current_user_id=assignee.userId)
+    assert [t.taskId for t in results] == [group_task.taskId]
+
+
+def test_list_tasks_for_group_raises_forbidden_for_non_member_non_creator(
+    task_group_service, user_service, group_service, task_service, user_group_service
+):
+    creator, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
+    with pytest.raises(ForbiddenError):
+        task_group_service.list_tasks_for_group(group.groupId, current_user_id="outsider")
+
+
+def test_list_tasks_for_group_raises_not_found_for_unknown_group(task_group_service):
+    with pytest.raises(NotFoundError):
+        task_group_service.list_tasks_for_group("unknown-group")
