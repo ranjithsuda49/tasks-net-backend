@@ -2,12 +2,13 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.exceptions import BadRequestError, ErrorCode, ForbiddenError, NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, NotFoundError
 from app.models.enums import TaskState
 from app.models.task import Task
 from app.models.task_group import TaskGroupRelationship
 from app.repositories.base import BaseRepository
 from app.repositories.task_group_repository import TaskGroupRepository
+from app.services.authorization import ensure_owner, ensure_owner_or_related
 from app.services.group_service import GroupService
 from app.services.user_service import UserService
 
@@ -70,11 +71,15 @@ class TaskService:
         task = self._repository.get(task_id)
         if task is None:
             raise NotFoundError(f"Task {task_id} not found")
-        if current_user_id is not None and current_user_id != task.createdBy:
-            assignments = self._task_group_repository.list_by_task(task_id)
-            is_assignee = any(rel.assigneeId == current_user_id for rel in assignments)
-            if not is_assignee:
-                raise ForbiddenError(f"User {current_user_id} is not authorized to access task {task_id}")
+        ensure_owner_or_related(
+            current_user_id,
+            task.createdBy,
+            lambda: any(
+                rel.assigneeId == current_user_id
+                for rel in self._task_group_repository.list_by_task(task_id)
+            ),
+            f"User {current_user_id} is not authorized to access task {task_id}",
+        )
         return task
 
     def update_task_meta(
@@ -85,8 +90,11 @@ class TaskService:
         task_desc: Optional[str] = None,
     ) -> Task:
         task = self.get_task(task_id)
-        if current_user_id != task.createdBy:
-            raise ForbiddenError(f"User {current_user_id} is not authorized to update task {task_id}")
+        ensure_owner(
+            current_user_id,
+            task.createdBy,
+            f"User {current_user_id} is not authorized to update task {task_id}",
+        )
         updated = task.model_copy(
             update={
                 "taskTitle": task_title if task_title is not None else task.taskTitle,

@@ -2,12 +2,13 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.exceptions import ForbiddenError, NotFoundError
+from app.exceptions import NotFoundError
 from app.models.enums import GroupStatus
 from app.models.group import Group
 from app.models.user_group import UserGroupRelationship
 from app.repositories.group_repository import GroupRepository
 from app.repositories.user_group_repository import UserGroupRepository
+from app.services.authorization import ensure_owner, ensure_owner_or_related
 from app.services.user_service import UserService
 
 
@@ -62,21 +63,22 @@ class GroupService:
         group = self._repository.get(group_id)
         if group is None:
             raise NotFoundError(f"Group {group_id} not found")
-        if current_user_id is not None and current_user_id != group.groupCreaterId:
-            is_member = self._user_group_repository.find_by_user_and_group(
+        ensure_owner_or_related(
+            current_user_id,
+            group.groupCreaterId,
+            lambda: self._user_group_repository.find_by_user_and_group(
                 current_user_id, group_id
-            ) is not None
-            if not is_member:
-                raise ForbiddenError(
-                    f"User {current_user_id} is not authorized to access group {group_id}"
-                )
+            ) is not None,
+            f"User {current_user_id} is not authorized to access group {group_id}",
+        )
         return group
 
     def get_groups_by_creator(self, creater_id: str, current_user_id: Optional[str] = None) -> list[Group]:
-        if current_user_id is not None and current_user_id != creater_id:
-            raise ForbiddenError(
-                f"User {current_user_id} is not authorized to view groups created by {creater_id}"
-            )
+        ensure_owner(
+            current_user_id,
+            creater_id,
+            f"User {current_user_id} is not authorized to view groups created by {creater_id}",
+        )
         return self._repository.list_by_creator(creater_id)
 
     def update_group(
@@ -88,8 +90,11 @@ class GroupService:
         current_user_id: Optional[str] = None,
     ) -> Group:
         group = self.get_group(group_id)
-        if current_user_id is not None and current_user_id != group.groupCreaterId:
-            raise ForbiddenError(f"User {current_user_id} is not authorized to update group {group_id}")
+        ensure_owner(
+            current_user_id,
+            group.groupCreaterId,
+            f"User {current_user_id} is not authorized to update group {group_id}",
+        )
         updated = group.model_copy(
             update={
                 "groupName": group_name if group_name is not None else group.groupName,
@@ -102,8 +107,11 @@ class GroupService:
 
     def set_status(self, group_id: str, status: GroupStatus, current_user_id: Optional[str] = None) -> Group:
         group = self.get_group(group_id)
-        if current_user_id is not None and current_user_id != group.groupCreaterId:
-            raise ForbiddenError(f"User {current_user_id} is not authorized to update group {group_id}")
+        ensure_owner(
+            current_user_id,
+            group.groupCreaterId,
+            f"User {current_user_id} is not authorized to update group {group_id}",
+        )
         updated = group.model_copy(
             update={"groupStatus": status, "updatedAt": datetime.now(timezone.utc)}
         )

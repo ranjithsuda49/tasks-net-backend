@@ -1,9 +1,10 @@
 import uuid
 from typing import Optional
 
-from app.exceptions import BadRequestError, ErrorCode, ForbiddenError, NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, NotFoundError
 from app.models.user_group import UserGroupRelationship
 from app.repositories.user_group_repository import UserGroupRepository
+from app.services.authorization import ensure_owner
 from app.services.group_service import GroupService
 from app.services.user_service import UserService
 
@@ -24,10 +25,11 @@ class UserGroupService:
     ) -> UserGroupRelationship:
         self._user_service.get_user(user_id)
         group = self._group_service.get_group(group_id)
-        if current_user_id is not None and current_user_id != group.groupCreaterId:
-            raise ForbiddenError(
-                f"User {current_user_id} is not authorized to associate users with group {group_id}"
-            )
+        ensure_owner(
+            current_user_id,
+            group.groupCreaterId,
+            f"User {current_user_id} is not authorized to associate users with group {group_id}",
+        )
         if self.is_member(user_id, group_id):
             raise BadRequestError(ErrorCode.DUPLICATE_GROUP_MEMBERSHIP)
         entity = UserGroupRelationship(
@@ -37,10 +39,11 @@ class UserGroupService:
 
     def disassociate(self, user_id: str, group_id: str, current_user_id: Optional[str] = None) -> None:
         group = self._group_service.get_group(group_id)
-        if current_user_id is not None and current_user_id != group.groupCreaterId:
-            raise ForbiddenError(
-                f"User {current_user_id} is not authorized to remove user {user_id} from group {group_id}"
-            )
+        ensure_owner(
+            current_user_id,
+            group.groupCreaterId,
+            f"User {current_user_id} is not authorized to remove user {user_id} from group {group_id}",
+        )
         if user_id == group.groupCreaterId:
             raise BadRequestError(ErrorCode.GROUP_CREATOR_CANNOT_BE_DEASSOCIATED)
         existing = self._repository.find_by_user_and_group(user_id, group_id)

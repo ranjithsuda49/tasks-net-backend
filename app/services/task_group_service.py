@@ -1,10 +1,11 @@
 import uuid
 from typing import Optional
 
-from app.exceptions import BadRequestError, ErrorCode, ForbiddenError, NotFoundError
+from app.exceptions import BadRequestError, ErrorCode, NotFoundError
 from app.models.task import Task
 from app.models.task_group import TaskGroupRelationship
 from app.repositories.task_group_repository import TaskGroupRepository
+from app.services.authorization import ensure_owner
 from app.services.group_service import GroupService
 from app.services.task_service import TaskService
 from app.services.user_group_service import UserGroupService
@@ -32,8 +33,11 @@ class TaskGroupService:
         task = self._task_service.get_task(task_id)
         self._group_service.get_group(group_id)
         self._user_service.get_user(assignee_id)
-        if current_user_id is not None and current_user_id != task.createdBy:
-            raise ForbiddenError(f"User {current_user_id} is not authorized to assign task {task_id}")
+        ensure_owner(
+            current_user_id,
+            task.createdBy,
+            f"User {current_user_id} is not authorized to assign task {task_id}",
+        )
         # A group's creator can never be a UserGroupRelationship member row
         # (GROUP_CREATOR_CANNOT_BE_MEMBER), so the membership check is
         # skipped for the task's own creator — otherwise retiring

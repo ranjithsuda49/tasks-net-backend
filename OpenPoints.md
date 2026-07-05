@@ -123,6 +123,77 @@ are now always members (`relationship="SELF"`) of their own group.
   `groupId` existed (the join table has always been independent of
   anything on `Task`) — not a new gap, just newly visible.
 
+## Code quality / clean-architecture follow-ups (2026-07-05 review)
+
+Found while reviewing the full codebase for clean-architecture adherence. None of these
+are bugs affecting current documented behavior — they're structural debt worth planning
+around before the API surface grows further.
+
+- **Repository `update()` methods assume the row already exists.** `UserRepository.update`,
+  `GroupRepository.update`, `TaskRepository.update`, `UserGroupRepository.update`, and
+  `TaskGroupRepository.update` all do `row = self._session.get(Row, id)` and immediately
+  mutate `row.<field>` with no `None` check. Every current call site is preceded by a
+  service-level `get_*()` that already raised `NotFoundError` if missing, so this can't
+  fire under today's single-request flow — but it means the repository layer silently
+  depends on an un-enforced caller invariant instead of translating a missing row into a
+  domain exception itself. A future caller that skips the pre-fetch (or a race between
+  fetch and update once delete endpoints exist) gets a raw `AttributeError` instead of a
+  handled 404/409.
+- **Check-then-write races aren't translated to domain exceptions.** `UserService.create_user`
+  (checks `get(user_id) is None` then inserts), `UserGroupService.associate` (checks
+  `is_member` then inserts), and `TaskGroupService.assign`'s insert branch all do a
+  read-then-write with no transaction-level guard. The DB-level unique constraints
+  (`uq_user_groups_user_id_group_id`, `uq_group_tasks_task_id_group_id`, the `users` PK)
+  will correctly reject a concurrent duplicate, but that surfaces as a raw SQLAlchemy
+  `IntegrityError` → unhandled 500, not the `ConflictError`/`ERR_TASKS_003` the
+  single-request path already returns for the same logical conflict. Not covered by tests
+  (see the concurrency note under Testing below). Fix would be catching `IntegrityError`
+  at the repository or service layer and re-raising as the appropriate domain exception.
+- **`GroupService.get_group` and `UserGroupService.is_member` independently implement the
+  same "is this user a member of this group" query**
+  (`UserGroupRepository.find_by_user_and_group(...) is not None`), because `GroupService`
+  cannot depend on `UserGroupService` (the latter already depends on the former — see
+  `Arch.md`'s "recurring pattern" section) and so reaches into `UserGroupRepository`
+  directly instead of delegating. The same shape applies to `GroupService.create_group`'s
+  direct `UserGroupRepository.add(...)` call and `TaskService.create_task`'s direct
+  `TaskGroupRepository.add(...)` call. Two instances of this shape is a pattern, not (yet)
+  a problem; a third would be a signal to extract a shared, dependency-free
+  membership/assignment helper both sides can use instead of hand-duplicating the query.
+- **`TaskGroupService.assign()`'s inline comment is now stale.** It still says "A group's
+  creator can never be a UserGroupRelationship member row (GROUP_CREATOR_CANNOT_BE_MEMBER)"
+  — that rule and error code (`ERR_TASKS_006`) were retired; group creators are now always
+  `SELF` members. `assign()` itself is no longer HTTP-reachable (its route was removed —
+  see Design notes above) and is kept only for test fixture setup, so this is low-urgency,
+  but the comment should be corrected, and/or the now-unnecessary
+  `assignee_id != task.createdBy` exemption should be dropped to match `reassign()`'s
+  simplified `is_member`-only check.
+- **Response-schema conversion isn't centralized.** `app/api/v1/users.py`, `groups.py`, and
+  `tasks.py` each define a local `_to_response()` helper; `user_group.py` and
+  `task_group.py` instead inline `XResponse(**relationship.model_dump())` /
+  `TaskResponse(**t.model_dump())` at each call site. Today every domain model's fields
+  match its schema's fields exactly, so both approaches produce identical output — but if
+  a schema ever needs a computed/renamed/hidden field, only the routers using the named
+  helper would pick up the change; the inline call sites would silently keep serializing
+  raw `model_dump()` output instead.
+- **`app/auth.py` initializes the Firebase Admin SDK and reads
+  `firebase-adminsdk.json` at module import time**, not through `app/dependencies.py` (the
+  documented sole composition root for repositories/services). Any import of `app.main`
+  (including via `tests/conftest.py`) triggers this side effect before
+  `app.dependency_overrides` ever gets a chance to bypass `verify_firebase_token` — meaning
+  the credentials file must exist on disk to run the test suite at all, even though no
+  test actually calls real Firebase. Consider lazy-initializing the Firebase app inside
+  `verify_firebase_token` on first call instead of at import time.
+- **`TaskService.get_tasks_for_user` fetches each assigned task individually inside a
+  loop** (`self._repository.get(rel.taskId)` per row returned by `list_by_assignee`)
+  instead of a single batch query — an N+1 query pattern that will get worse as
+  `list_by_assignee` results grow. Not urgent at current scale, but worth a
+  `list_by_ids`-style batch method on `TaskRepository`/`BaseRepository` if this list ever
+  needs pagination (see API surface gaps above).
+- **`tests/conftest.py`'s `client` and `unauthenticated_client` fixtures duplicate the
+  entire repository/service wiring block verbatim** — the only difference between them is
+  whether `verify_firebase_token` is overridden. Worth extracting into a shared
+  `_build_services(db_session)` helper.
+
 ## Observability & ops
 - No structured logging, request tracing, or metrics.
 - No rate limiting.
