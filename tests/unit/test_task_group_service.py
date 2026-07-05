@@ -127,32 +127,6 @@ def test_assign_twice_updates_existing_relationship(
     assert second.assigneeId == other_member.userId
 
 
-def test_unassign_clears_assignee(
-    task_group_service, user_service, group_service, task_service, user_group_service
-):
-    _, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
-    task_group_service.assign(task.taskId, group.groupId, assignee.userId)
-    result = task_group_service.unassign(task.taskId, group.groupId, assignee.userId)
-    assert result.assigneeId is None
-
-
-def test_unassign_raises_if_no_matching_assignment(
-    task_group_service, user_service, group_service, task_service, user_group_service
-):
-    _, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
-    with pytest.raises(NotFoundError):
-        task_group_service.unassign(task.taskId, group.groupId, assignee.userId)
-
-
-def test_unassign_raises_if_assignee_does_not_match_current_assignment(
-    task_group_service, user_service, group_service, task_service, user_group_service
-):
-    creator, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
-    task_group_service.assign(task.taskId, group.groupId, assignee.userId)
-    with pytest.raises(NotFoundError):
-        task_group_service.unassign(task.taskId, group.groupId, creator.userId)
-
-
 def test_assign_raises_forbidden_if_caller_is_not_task_creator(
     task_group_service, user_service, group_service, task_service, user_group_service
 ):
@@ -161,12 +135,83 @@ def test_assign_raises_forbidden_if_caller_is_not_task_creator(
         task_group_service.assign(task.taskId, group.groupId, assignee.userId, current_user_id="outsider")
 
 
-def test_unassign_raises_forbidden_if_caller_is_not_task_creator(
+def test_reassign_updates_assignee_to_new_group_member(
+    task_group_service, user_service, group_service, task_service, user_group_service
+):
+    creator, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
+    other_member = user_service.create_user(user_id="cara", first_name="Cara", last_name="Jones")
+    user_group_service.associate(other_member.userId, group.groupId, "Member")
+    task_group_service.assign(task.taskId, group.groupId, assignee.userId)
+
+    result = task_group_service.reassign(task.taskId, group.groupId, other_member.userId)
+
+    assert result.assigneeId == other_member.userId
+
+
+def test_reassign_raises_bad_request_if_same_as_current_assignee(
     task_group_service, user_service, group_service, task_service, user_group_service
 ):
     _, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
     task_group_service.assign(task.taskId, group.groupId, assignee.userId)
+
+    with pytest.raises(BadRequestError) as exc_info:
+        task_group_service.reassign(task.taskId, group.groupId, assignee.userId)
+    assert exc_info.value.error_code == ErrorCode.REASSIGN_ASSIGNEE_UNCHANGED
+    assert exc_info.value.http_code == 400
+
+
+def test_reassign_raises_bad_request_if_new_assignee_not_group_member(
+    task_group_service, user_service, group_service, task_service, user_group_service
+):
+    creator, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
+    outsider = user_service.create_user(user_id="cara", first_name="Cara", last_name="Jones")
+    task_group_service.assign(task.taskId, group.groupId, assignee.userId)
+
+    with pytest.raises(BadRequestError) as exc_info:
+        task_group_service.reassign(task.taskId, group.groupId, outsider.userId)
+    assert exc_info.value.error_code == ErrorCode.REASSIGN_ASSIGNEE_NOT_GROUP_MEMBER
+    assert exc_info.value.http_code == 400
+
+
+def test_reassign_raises_not_found_if_no_existing_assignment(
+    task_group_service, user_service, group_service, task_service, user_group_service
+):
+    _, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
+    with pytest.raises(NotFoundError):
+        task_group_service.reassign(task.taskId, group.groupId, assignee.userId)
+
+
+def test_reassign_succeeds_for_plain_member_caller(
+    task_group_service, user_service, group_service, task_service, user_group_service
+):
+    creator, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
+    task_group_service.assign(task.taskId, group.groupId, assignee.userId)
+
+    result = task_group_service.reassign(
+        task.taskId, group.groupId, creator.userId, current_user_id=assignee.userId
+    )
+    assert result.assigneeId == creator.userId
+
+
+def test_reassign_succeeds_for_creator_caller(
+    task_group_service, user_service, group_service, task_service, user_group_service
+):
+    creator, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
+    task_group_service.assign(task.taskId, group.groupId, assignee.userId)
+
+    result = task_group_service.reassign(
+        task.taskId, group.groupId, creator.userId, current_user_id=creator.userId
+    )
+    assert result.assigneeId == creator.userId
+
+
+def test_reassign_raises_forbidden_if_caller_is_not_a_group_member(
+    task_group_service, user_service, group_service, task_service, user_group_service
+):
+    creator, assignee, group, task = _setup(user_service, group_service, task_service, user_group_service)
+    task_group_service.assign(task.taskId, group.groupId, assignee.userId)
+
     with pytest.raises(ForbiddenError):
-        task_group_service.unassign(
-            task.taskId, group.groupId, assignee.userId, current_user_id="outsider"
+        task_group_service.reassign(
+            task.taskId, group.groupId, creator.userId, current_user_id="outsider"
         )

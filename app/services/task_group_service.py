@@ -50,16 +50,27 @@ class TaskGroupService:
         )
         return self._repository.add(entity)
 
-    def unassign(
-        self, task_id: str, group_id: str, assignee_id: str, current_user_id: Optional[str] = None
+    def reassign(
+        self,
+        task_id: str,
+        group_id: str,
+        assignee_id: str,
+        current_user_id: Optional[str] = None,
     ) -> TaskGroupRelationship:
         task = self._task_service.get_task(task_id)
-        if current_user_id is not None and current_user_id != task.createdBy:
-            raise ForbiddenError(f"User {current_user_id} is not authorized to unassign task {task_id}")
+        # Creator-or-member (same rule as GroupService.get_group elsewhere) —
+        # deliberately not creator-only, unlike assign(). Raises NotFoundError
+        # if the group doesn't exist, ForbiddenError if caller is neither.
+        self._group_service.get_group(group_id, current_user_id=current_user_id)
+        self._user_service.get_user(assignee_id)
+
         existing = self._repository.find_by_task_and_group(task_id, group_id)
-        if existing is None or existing.assigneeId != assignee_id:
-            raise NotFoundError(
-                f"No assignment of user {assignee_id} to task {task_id} in group {group_id}"
-            )
-        updated = existing.model_copy(update={"assigneeId": None})
+        if existing is None:
+            raise NotFoundError(f"No existing assignment for task {task_id} in group {group_id}")
+        if assignee_id == existing.assigneeId:
+            raise BadRequestError(ErrorCode.REASSIGN_ASSIGNEE_UNCHANGED)
+        if assignee_id != task.createdBy and not self._user_group_service.is_member(assignee_id, group_id):
+            raise BadRequestError(ErrorCode.REASSIGN_ASSIGNEE_NOT_GROUP_MEMBER)
+
+        updated = existing.model_copy(update={"assigneeId": assignee_id})
         return self._repository.update(updated)
