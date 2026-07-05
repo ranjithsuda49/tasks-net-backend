@@ -17,7 +17,7 @@ def _create_task(client, authenticate_as, creator_id):
     return client.post("/api/v1/tasks", json={"taskTitle": "Buy milk"}).json()["taskId"]
 
 
-def test_full_cross_entity_lifecycle(client, authenticate_as):
+def test_full_cross_entity_lifecycle(client, authenticate_as, db_session):
     # 1. Create the owner user.
     owner_id = _create_user(client, authenticate_as, "owner", first_name="Ada", last_name="Lovelace")
 
@@ -44,15 +44,18 @@ def test_full_cross_entity_lifecycle(client, authenticate_as):
     # 5. Create a task, created by the owner.
     task_id = _create_task(client, authenticate_as, owner_id)
 
-    # 6. Assign the task to the member within the group.
-    assign_response = client.post(
-        f"/api/v1/groups/{group_id}/tasks/{task_id}/assignee", json={"assigneeId": member_id}
+    # 6. Seed the task's assignment to the member within the group directly
+    #    (the POST .../assignee endpoint was removed — assignment now only
+    #    happens via auto-assign-on-create-with-groupId, or via PATCH reassign
+    #    once an assignment already exists).
+    import uuid
+
+    from app.models.task_group import TaskGroupRelationship
+    from app.repositories.task_group_repository import TaskGroupRepository
+
+    TaskGroupRepository(db_session).add(
+        TaskGroupRelationship(uuid=str(uuid.uuid4()), taskId=task_id, groupId=group_id, assigneeId=member_id)
     )
-    assert assign_response.status_code == 201
-    assign_body = assign_response.json()
-    assert assign_body["taskId"] == task_id
-    assert assign_body["groupId"] == group_id
-    assert assign_body["assigneeId"] == member_id
 
     # 7. Move the task through states: TODO -> IN-PROGRESS -> COMPLETED.
     in_progress_response = client.patch(
